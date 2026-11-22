@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>Калькулятор — Архитектура Намерения</title>
+  <title>Калькулятор — Архитектура намерения</title>
   <!-- Официальный скрипт Telegram Mini App -->
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
@@ -40,6 +40,13 @@
       from { opacity: 0; transform: translateY(-6px); }
       to { opacity: 1; transform: translateY(0); }
     }
+    .sheet-up {
+      animation: sheetUp 0.22s ease-out forwards;
+    }
+    @keyframes sheetUp {
+      from { opacity: 0; transform: translateY(18px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
     .toast-anim {
       animation: toastPop 0.22s ease-out forwards;
     }
@@ -51,10 +58,10 @@
 </head>
 <body class="min-h-screen dot-bg pb-44 selection:bg-lime-400/25">
 
-  <!-- Уведомление (вместо alert) -->
+  <!-- Всплывающее уведомление (вместо alert) -->
   <div id="toast" class="fixed top-4 left-1/2 -translate-x-1/2 z-50 hidden px-4 py-2.5 rounded-xl bg-zinc-900 border border-lime-400/60 text-lime-300 text-xs font-semibold shadow-2xl whitespace-nowrap"></div>
 
-  <!-- Основной контейнер (адаптивный под экран Telegram Mini App) -->
+  <!-- Основной адаптивный контейнер Mini App -->
   <div class="max-w-md mx-auto px-4 pt-5 space-y-6">
 
     <!-- Шапка приложения -->
@@ -62,7 +69,7 @@
       <div>
         <div class="inline-flex items-center gap-2 px-2.5 py-1 rounded-lg bg-zinc-900/90 border border-zinc-800 text-[11px] font-bold tracking-widest text-lime-400 mb-2">
           <span>◯ □ △</span>
-          <span class="text-zinc-500 font-medium tracking-normal">АРХИТЕКТУРА НАМЕРЕНИЯ</span>
+          <span class="text-zinc-400 font-medium tracking-normal">Архитектура намерения</span>
         </div>
         <h1 class="text-xl font-extrabold tracking-tight text-white leading-snug">
           Калькулятор разбора
@@ -227,18 +234,52 @@
     </div>
   </div>
 
+  <!-- Страховочная шторка отправки (показывается только если Telegram не переключил экран сам) -->
+  <div id="send-modal" class="fixed inset-0 z-50 hidden bg-black/75 backdrop-blur-sm flex items-end sm:items-center justify-center p-4" onclick="closeSendModal()">
+    <div class="w-full max-w-md rounded-3xl bg-zinc-950 border border-zinc-800 p-5 space-y-4 sheet-up shadow-2xl" onclick="event.stopPropagation()">
+      <div class="flex items-start justify-between gap-3">
+        <div>
+          <div class="inline-flex items-center gap-1.5 text-[11px] font-bold text-lime-400 uppercase tracking-wider">
+            <span>✓ Текст расчёта скопирован</span>
+          </div>
+          <h2 class="text-base font-extrabold text-white mt-1">Отправка в личные сообщения</h2>
+        </div>
+        <button type="button" onclick="closeSendModal()" class="w-8 h-8 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white flex items-center justify-center text-sm font-bold">
+          ✕
+        </button>
+      </div>
+
+      <p class="text-xs text-zinc-400 leading-relaxed">
+        Если чат не открылся сам или текст не подставился автоматически — нажмите кнопку ниже и выберите <span class="text-white font-semibold">«Вставить»</span> в сообщении.
+      </p>
+
+      <pre id="modal-preview" class="p-3 rounded-2xl bg-zinc-900/90 border border-zinc-800 text-[11px] text-zinc-300 whitespace-pre-wrap font-sans leading-relaxed max-h-40 overflow-y-auto"></pre>
+
+      <div class="space-y-2">
+        <a id="modal-direct-link" href="#" target="_blank" rel="noopener noreferrer" onclick="handleDirectChatTap(event)"
+          class="w-full py-3.5 px-4 rounded-2xl bg-lime-400 hover:bg-lime-300 text-zinc-950 font-extrabold text-sm transition flex items-center justify-center gap-2">
+          <span id="modal-direct-label">Открыть чат с Иваном →</span>
+        </a>
+
+        <button type="button" onclick="copyLastMessageAgain()"
+          class="w-full py-2.5 px-4 rounded-xl bg-zinc-900 border border-zinc-800 hover:border-zinc-700 text-xs font-semibold text-zinc-300 transition">
+          Скопировать текст ещё раз
+        </button>
+      </div>
+    </div>
+  </div>
+
   <script>
     /* =========================================================================
-       НАСТРОЙКИ КАЛЬКУЛЯТОРА (РЕДАКТИРУЙ ТОЛЬКО ЭТОТ БЛОК!)
-       Чтобы изменить цену, текст или налог — просто поменяй цифру и сохрани.
+       НАСТРОЙКИ КАЛЬКУЛЯТОРА (РЕДАКТИРУЙ ТОЛЬКО ЭТОТ БЛОК)
        ========================================================================= */
     const CONFIG = {
-      // Твой Telegram username без символа @
+      // Личный Telegram username БЕЗ символа @
       telegramUsername: 'kolesnikov_ivan',
 
       // Налоги (% сверху)
-      taxPercentFL: 4, // % для физлица (поставь 0, если захочешь включить налог в базовую цену)
-      taxPercentUL: 6, // % для юрлица (оплата по счёту)
+      taxPercentFL: 4, // Физлицо (перевод)
+      taxPercentUL: 6, // Юрлицо (оплата по счёту)
 
       // Форматы работы (можно менять цены, тексты или скрывать через enabled: false)
       formats: [
@@ -249,8 +290,8 @@
           title: 'Только диагностика',
           subtitle: 'Выявить скрытую ловушку и понять её устройство',
           basePrice: 7000,
-          roomRentPrice: 2000,    // Доплата за аренду кабинета при личной встрече
-          clientSpaceFee: 0,      // Доплата за выезд в помещение клиента
+          roomRentPrice: 2000,
+          clientSpaceFee: 0,
           sessionsText: '1 встреча · 60–90 мин'
         },
         {
@@ -279,29 +320,34 @@
     };
 
     /* =========================================================================
-       ЛОГИКА ПРИЛОЖЕНИЯ (ДАЛЬШЕ МОЖНО НЕ ТРОГАТЬ)
+       ЛОГИКА ПРИЛОЖЕНИЯ
        ========================================================================= */
 
-    // Безопасная инициализация Telegram WebApp API
+    // Определение среды Telegram Mini App
     const tg = (window.Telegram && window.Telegram.WebApp) ? window.Telegram.WebApp : null;
+    const isInsideTelegram = Boolean(tg && tg.platform && tg.platform !== 'unknown');
 
-    // Активные форматы из конфига
+    // Список активных форматов
     const activeFormats = CONFIG.formats.filter((f) => f.enabled);
 
-    // Текущее состояние выбранных пользователем опций
+    // Текущее состояние выбранных параметров
     const state = {
       formatId: activeFormats.some((f) => f.id === 'full')
         ? 'full'
         : (activeFormats[0] ? activeFormats[0].id : ''),
-      mode: 'online',    // 'online' | 'offline'
-      room: 'my',        // 'my' | 'client'
-      payer: 'fl'        // 'fl' | 'ul'
+      mode: 'online', // 'online' | 'offline'
+      room: 'my',     // 'my' | 'client'
+      payer: 'fl',    // 'fl' | 'ul'
+      lastMessage: ''
     };
+
+    let fallbackTimer = null;
+    let toastTimeout = null;
 
     // Лёгкая вибрация внутри Telegram при нажатии кнопок
     function hapticTap() {
       try {
-        if (tg && tg.HapticFeedback && typeof tg.HapticFeedback.selectionChanged === 'function') {
+        if (isInsideTelegram && tg.HapticFeedback && typeof tg.HapticFeedback.selectionChanged === 'function') {
           tg.HapticFeedback.selectionChanged();
         }
       } catch (e) {
@@ -314,8 +360,7 @@
       return `${Math.round(amount).toLocaleString('ru-RU')} ₽`;
     }
 
-    // Всплывающее уведомление
-    let toastTimeout = null;
+    // Показ всплывающего уведомления
     function showToast(text) {
       const el = document.getElementById('toast');
       if (!el) return;
@@ -329,12 +374,39 @@
       }, 2400);
     }
 
-    // Получение объекта выбранного формата
+    // Надёжное копирование в буфер обмена (работает в iOS WebView и iframe)
+    function copyTextToClipboard(text) {
+      let copied = false;
+      try {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.setAttribute('readonly', '');
+        ta.style.position = 'fixed';
+        ta.style.top = '0';
+        ta.style.left = '-9999px';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        ta.setSelectionRange(0, text.length);
+        copied = document.execCommand('copy');
+        document.body.removeChild(ta);
+      } catch (e) {
+        copied = false;
+      }
+
+      if (!copied && navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+        navigator.clipboard.writeText(text).catch(() => {});
+      }
+      return copied;
+    }
+
+    // Получение выбранного формата
     function getSelectedFormat() {
       return activeFormats.find((f) => f.id === state.formatId) || activeFormats[0];
     }
 
-    // Расчёт итоговой стоимости и составляющих
+    // Расчёт стоимости и составляющих
     function calculate() {
       const fmt = getSelectedFormat();
       const base = fmt ? fmt.basePrice : 0;
@@ -352,7 +424,7 @@
       return { fmt, base, roomFee, subtotal, taxPct, taxAmount, total };
     }
 
-    // Обработчики выбора пользователя
+    // Обработчики кликов
     function selectFormat(id) {
       state.formatId = id;
       hapticTap();
@@ -377,7 +449,7 @@
       updateUI();
     }
 
-    // Отрисовка списка карточек форматов
+    // Отрисовка карточек форматов
     function renderFormats() {
       const container = document.getElementById('formats-list');
       if (!container) return;
@@ -412,13 +484,13 @@
       }).join('');
     }
 
-    // Полное обновление интерфейса по текущему state
+    // Обновление всего интерфейса
     function updateUI() {
       renderFormats();
       const calc = calculate();
       const fmt = calc.fmt;
 
-      // 2. Способ встречи: Онлайн / Лично
+      // 2. Способ встречи
       const btnOnline = document.getElementById('mode-online');
       const btnOffline = document.getElementById('mode-offline');
       const dotOnline = document.getElementById('dot-online');
@@ -446,7 +518,7 @@
         roomBlock.classList.remove('hidden');
       }
 
-      // 2.1 Помещение при выборе «Лично»
+      // 2.1 Выбор помещения
       const btnRoomMy = document.getElementById('room-my');
       const btnRoomClient = document.getElementById('room-client');
       const myPriceEl = document.getElementById('room-my-price');
@@ -465,7 +537,7 @@
         ? 'option-card flex items-center justify-between p-3 rounded-xl border border-lime-400/80 bg-lime-400/10 text-left'
         : 'option-card flex items-center justify-between p-3 rounded-xl border border-zinc-800 bg-zinc-950/60 hover:border-zinc-700 text-left';
 
-      // 3. Способ оплаты: Физлицо / Юрлицо
+      // 3. Способ оплаты
       const btnFl = document.getElementById('payer-fl');
       const btnUl = document.getElementById('payer-ul');
       const badgeFl = document.getElementById('payer-fl-badge');
@@ -529,7 +601,7 @@
       document.getElementById('sticky-total').textContent = formattedTotal;
     }
 
-    // Формирование предзаполненного сообщения для Telegram
+    // Формирование чистого структурированного сообщения для отправки в Telegram
     function buildSummaryText() {
       const calc = calculate();
       const fmt = calc.fmt;
@@ -548,7 +620,7 @@
         : `Юрлицо · оплата по счёту${calc.taxPct > 0 ? ` (+${calc.taxPct}%)` : ''}`;
 
       const parts = [
-        'Иван, привет! Вот мой расчёт из калькулятора «Архитектура Намерения»:',
+        'Иван, привет! Вот мой расчёт из калькулятора:',
         '',
         `• Формат: ${fmt ? fmt.title : ''} (${fmt ? fmt.sessionsText : ''})`,
         `• Встреча: ${modeText}`,
@@ -557,25 +629,96 @@
       ];
 
       if (comment) {
-        parts.push('', `Пожелания:\n${comment}`);
+        parts.push('', 'Пожелания:', comment);
       }
 
       parts.push('', 'Хочу обсудить детали и удобное время.');
       return parts.join('\n');
     }
 
-    // Открытие чата с Иваном в Telegram (работает и в Mini App, и в обычном браузере)
-    function openTelegramChat(messageText) {
-      const url = `https://t.me/${CONFIG.telegramUsername}?text=${encodeURIComponent(messageText)}`;
-      try {
-        if (tg && typeof tg.openTelegramLink === 'function') {
-          tg.openTelegramLink(url);
+    // Чистый юзернейм без @
+    function getCleanUsername() {
+      return String(CONFIG.telegramUsername || '').replace(/^@+/, '').trim();
+    }
+
+    // Шторка-страховка
+    function openSendModal(messageText, plainUrl) {
+      state.lastMessage = messageText;
+      const username = getCleanUsername();
+      const modal = document.getElementById('send-modal');
+      const preview = document.getElementById('modal-preview');
+      const directLink = document.getElementById('modal-direct-link');
+      const directLabel = document.getElementById('modal-direct-label');
+
+      if (preview) preview.textContent = messageText;
+      if (directLink) directLink.href = plainUrl;
+      if (directLabel) directLabel.textContent = `Открыть чат @${username} →`;
+      if (modal) modal.classList.remove('hidden');
+    }
+
+    function closeSendModal() {
+      const modal = document.getElementById('send-modal');
+      if (modal) modal.classList.add('hidden');
+    }
+
+    // Прямой переход в чат из страховочной шторки (без ?text=)
+    function handleDirectChatTap(event) {
+      hapticTap();
+      const username = getCleanUsername();
+      const plainUrl = `https://t.me/${username}`;
+
+      if (isInsideTelegram && typeof tg.openTelegramLink === 'function') {
+        event.preventDefault();
+        try {
+          tg.openTelegramLink(plainUrl);
           return;
+        } catch (e) {
+          console.error('Direct openTelegramLink error:', e);
         }
-      } catch (e) {
-        console.error('Telegram openTelegramLink error:', e);
       }
-      window.open(url, '_blank', 'noopener,noreferrer');
+    }
+
+    function copyLastMessageAgain() {
+      hapticTap();
+      if (state.lastMessage) {
+        copyTextToClipboard(state.lastMessage);
+        showToast('Текст скопирован в буфер');
+      }
+    }
+
+    // Универсальный запуск чата с автокопированием и умной отложенной шторкой-страховкой
+    function openTelegramChat(messageText) {
+      const username = getCleanUsername();
+      const urlWithText = `https://t.me/${username}?text=${encodeURIComponent(messageText)}`;
+      const plainUrl = `https://t.me/${username}`;
+
+      // 1. Всегда копируем расчёт в буфер до перехода
+      copyTextToClipboard(messageText);
+
+      // 2. Показываем шторку-страховку только если через 650 мс приложение всё ещё открыто на экране
+      if (fallbackTimer) clearTimeout(fallbackTimer);
+      fallbackTimer = setTimeout(() => {
+        if (document.visibilityState === 'visible') {
+          openSendModal(messageText, plainUrl);
+        }
+      }, 650);
+
+      // 3. Внутри Telegram открываем чат с предзаполненным сообщением
+      if (isInsideTelegram && typeof tg.openTelegramLink === 'function') {
+        try {
+          tg.openTelegramLink(urlWithText);
+          return;
+        } catch (e) {
+          console.error('Telegram openTelegramLink error:', e);
+        }
+      }
+
+      // 4. В обычном браузере — стандартный переход
+      try {
+        window.location.href = urlWithText;
+      } catch (e) {
+        window.open(urlWithText, '_blank', 'noopener,noreferrer');
+      }
     }
 
     // Кнопка «Отправить этот расчёт Ивану»
@@ -585,38 +728,25 @@
       openTelegramChat(text);
     }
 
-    // Кнопка «Обсудить индивидуальный запрос с Иваном» (лекции, бизнес, группы)
+    // Кнопка «Обсудить индивидуальный запрос с Иваном»
     function sendCustomInquiry() {
       hapticTap();
-      const msg = 'Иван, привет! Хочу обсудить отдельный формат (лекция / консультация для бизнеса / корпоративный или групповой тренинг).';
+      const msg = 'Иван, привет! Хочу обсудить отдельный формат (лекция, консультация для бизнеса, корпоративный или групповой тренинг).';
       openTelegramChat(msg);
     }
 
-    // Копирование текста расчёта в буфер обмена (надёжно работает внутри iFrame)
+    // Кнопка «Скопировать» рядом с итогом
     function copySummary() {
       hapticTap();
       const text = buildSummaryText();
-      try {
-        const ta = document.createElement('textarea');
-        ta.value = text;
-        ta.setAttribute('readonly', '');
-        ta.style.position = 'fixed';
-        ta.style.opacity = '0';
-        document.body.appendChild(ta);
-        ta.select();
-        document.execCommand('copy');
-        document.body.removeChild(ta);
-        showToast('Расчёт скопирован в буфер');
-      } catch (err) {
-        console.error('Copy failed:', err);
-        showToast('Не удалось скопировать');
-      }
+      copyTextToClipboard(text);
+      showToast('Расчёт скопирован в буфер');
     }
 
-    // Запуск при загрузке страницы
+    // Инициализация при загрузке
     window.onload = function () {
       try {
-        if (tg) {
+        if (isInsideTelegram) {
           tg.ready();
           tg.expand();
           if (typeof tg.setHeaderColor === 'function') tg.setHeaderColor('#0B0B0E');
