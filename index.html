@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Калькулятор — Архитектура Намерения</title>
+  <!-- Официальный скрипт Telegram Mini App -->
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      color-scheme: dark;
+    }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: #0B0B0E;
+      color: #FAFAFA;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .mono {
+      font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+    }
+    .dot-bg {
+      background-image: radial-gradient(#24242D 1.1px, transparent 1.1px);
+      background-size: 24px 24px;
+    }
+    .option-card {
+      transition: border-color 0.16s ease, background-color 0.16s ease, transform 0.12s ease;
+    }
+    .option-card:active {
+      transform: scale(0.99);
+    }
+    .slide-down {
+      animation: slideDown 0.2s ease-out forwards;
+    }
+    @keyframes slideDown {
+      from { opacity: 0; transform: translateY(-6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .toast-anim {
+      animation: toastPop 0.22s ease-out forwards;
+    }
+    @keyframes toastPop {
+      from { opacity: 0; transform: translate(-50%, 10px); }
+      to { opacity: 1; transform: translate(-50%, 0); }
+    }
+  </style>
+</head>
+<body class="min-h-screen dot-bg pb-44 selection:bg-lime-400/25">
+
+  <!-- Уведомление (вместо alert) -->
+  <div id="toast" class="fixed top-4 left-1/2 -translate-x-1/2 z-50 hidden px-4 py-2.5 rounded-xl bg-zinc-900 border border-lime-400/60 text-lime-300 text-xs font-semibold shadow-2xl whitespace-nowrap"></div>
+
+  <!-- Основной контейнер (адаптивный под экран Telegram Mini App) -->
+  <div class="max-w-md mx-auto px-4 pt-5 space-y-6">
+
+    <!-- Шапка приложения -->
+    <header class="flex items-start justify-between gap-3">
+      <div>
+        <div class="inline-flex items-center gap-2 px-2.5 py-1 rounded-lg bg-zinc-900/90 border border-zinc-800 text-[11px] font-bold tracking-widest text-lime-400 mb-2">
+          <span>◯ □ △</span>
+          <span class="text-zinc-500 font-medium tracking-normal">АРХИТЕКТУРА НАМЕРЕНИЯ</span>
+        </div>
+        <h1 class="text-xl font-extrabold tracking-tight text-white leading-snug">
+          Калькулятор разбора
+        </h1>
+        <p class="text-xs text-zinc-400 mt-1 leading-relaxed">
+          Выберите удобный формат и условия — итоговая стоимость посчитается сразу.
+        </p>
+      </div>
+    </header>
+
+    <!-- ШАГ 1: Формат работы -->
+    <section class="space-y-2.5">
+      <div class="flex items-center justify-between">
+        <span class="text-[11px] font-bold uppercase tracking-wider text-zinc-400">1. Формат работы</span>
+        <span class="mono text-[11px] text-zinc-600">ШАГ 1/4</span>
+      </div>
+      <div id="formats-list" class="space-y-2.5"></div>
+    </section>
+
+    <!-- ШАГ 2: Способ встречи (Онлайн или Лично) -->
+    <section class="space-y-2.5">
+      <div class="flex items-center justify-between">
+        <span class="text-[11px] font-bold uppercase tracking-wider text-zinc-400">2. Способ встречи</span>
+        <span class="mono text-[11px] text-zinc-600">ШАГ 2/4</span>
+      </div>
+      <div class="grid grid-cols-2 gap-2.5">
+        <button type="button" id="mode-online" onclick="selectMode('online')"
+          class="option-card text-left p-3.5 rounded-2xl border">
+          <div class="flex items-center justify-between mb-1">
+            <span class="text-sm font-bold text-white">Онлайн</span>
+            <span id="dot-online" class="w-4 h-4 rounded-full border-2 flex items-center justify-center"></span>
+          </div>
+          <p class="text-[11px] text-zinc-400 leading-snug">Zoom, Яндекс.Телемост или другой удобный способ</p>
+        </button>
+
+        <button type="button" id="mode-offline" onclick="selectMode('offline')"
+          class="option-card text-left p-3.5 rounded-2xl border">
+          <div class="flex items-center justify-between mb-1">
+            <span class="text-sm font-bold text-white">Лично</span>
+            <span id="dot-offline" class="w-4 h-4 rounded-full border-2 flex items-center justify-center"></span>
+          </div>
+          <p class="text-[11px] text-zinc-400 leading-snug">Живая встреча в тихом пространстве</p>
+        </button>
+      </div>
+
+      <!-- Условный подблок: выбор помещения (показывается только при выборе «Лично») -->
+      <div id="room-block" class="hidden pt-1 slide-down">
+        <div class="p-3.5 rounded-2xl bg-zinc-900/75 border border-zinc-800 space-y-2.5">
+          <div class="text-[11px] font-bold uppercase tracking-wider text-amber-400/90">
+            Где проводим личную встречу?
+          </div>
+          <div class="grid grid-cols-1 gap-2">
+            <button type="button" id="room-my" onclick="selectRoom('my')"
+              class="option-card flex items-center justify-between p-3 rounded-xl border text-left">
+              <div>
+                <div class="text-xs font-bold text-white">Я арендую помещение</div>
+                <div class="text-[11px] text-zinc-400 mt-0.5">Подберу тихий отдельный кабинет</div>
+              </div>
+              <span id="room-my-price" class="mono text-xs font-bold text-amber-400 shrink-0 ml-2"></span>
+            </button>
+
+            <button type="button" id="room-client" onclick="selectRoom('client')"
+              class="option-card flex items-center justify-between p-3 rounded-xl border text-left">
+              <div>
+                <div class="text-xs font-bold text-white">В вашем помещении</div>
+                <div class="text-[11px] text-zinc-400 mt-0.5">Ваш офис или спокойное пространство</div>
+              </div>
+              <span id="room-client-price" class="mono text-xs font-bold text-zinc-400 shrink-0 ml-2"></span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ШАГ 3: Способ оплаты -->
+    <section class="space-y-2.5">
+      <div class="flex items-center justify-between">
+        <span class="text-[11px] font-bold uppercase tracking-wider text-zinc-400">3. Способ оплаты</span>
+        <span class="mono text-[11px] text-zinc-600">ШАГ 3/4</span>
+      </div>
+      <div class="grid grid-cols-2 gap-2.5">
+        <button type="button" id="payer-fl" onclick="selectPayer('fl')"
+          class="option-card text-left p-3.5 rounded-2xl border">
+          <div class="flex items-center justify-between mb-1">
+            <span class="text-sm font-bold text-white">Физлицо</span>
+            <span id="payer-fl-badge" class="mono text-[11px] font-bold"></span>
+          </div>
+          <p class="text-[11px] text-zinc-400 leading-snug">Перевод</p>
+        </button>
+
+        <button type="button" id="payer-ul" onclick="selectPayer('ul')"
+          class="option-card text-left p-3.5 rounded-2xl border">
+          <div class="flex items-center justify-between mb-1">
+            <span class="text-sm font-bold text-white">Юрлицо</span>
+            <span id="payer-ul-badge" class="mono text-[11px] font-bold"></span>
+          </div>
+          <p class="text-[11px] text-zinc-400 leading-snug">Оплата по счёту</p>
+        </button>
+      </div>
+    </section>
+
+    <!-- ШАГ 4: Пожелания -->
+    <section class="space-y-2">
+      <div class="flex items-center justify-between">
+        <label for="comment-input" class="text-[11px] font-bold uppercase tracking-wider text-zinc-400">
+          4. Пожелания
+        </label>
+        <span class="mono text-[11px] text-zinc-600">ОПЦИОНАЛЬНО</span>
+      </div>
+      <textarea id="comment-input" rows="3"
+        placeholder="Например: удобные дни и время, предпочтительный способ связи или особые условия..."
+        class="w-full rounded-2xl bg-zinc-900/90 border border-zinc-800 px-3.5 py-3 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-lime-400/70 resize-none leading-relaxed"></textarea>
+    </section>
+
+    <!-- Детализация расчёта -->
+    <section class="p-4 rounded-2xl bg-zinc-900/80 border border-zinc-800 space-y-2.5">
+      <div class="text-[11px] font-bold uppercase tracking-wider text-zinc-400">Что входит в расчёт</div>
+      <div id="breakdown-list" class="space-y-1.5 text-xs"></div>
+      <div class="pt-2 border-t border-zinc-800 flex items-baseline justify-between">
+        <span class="text-xs font-semibold text-zinc-300">Итоговая стоимость</span>
+        <span id="summary-total" class="mono text-lg font-extrabold text-lime-400"></span>
+      </div>
+    </section>
+
+    <!-- Сноска про B2B, лекции и групповые форматы -->
+    <section class="p-4 rounded-2xl bg-zinc-900/45 border border-zinc-800/80 space-y-2">
+      <div class="flex items-center gap-2">
+        <span class="w-1.5 h-1.5 rounded-full bg-lime-400"></span>
+        <span class="text-xs font-bold text-zinc-200">Группы, лекции и задачи для бизнеса</span>
+      </div>
+      <p class="text-[11px] text-zinc-400 leading-relaxed">
+        Лекции, консультации для бизнеса, корпоративные и групповые тренинги обсуждаются отдельно под вашу задачу и состав участников.
+      </p>
+      <button type="button" onclick="sendCustomInquiry()"
+        class="inline-flex items-center gap-1.5 text-xs font-bold text-lime-400 hover:text-lime-300 pt-0.5 transition">
+        <span>Обсудить индивидуальный запрос с Иваном</span>
+        <span>→</span>
+      </button>
+    </section>
+
+  </div>
+
+  <!-- Фиксированная нижняя панель с итогом и главной кнопкой -->
+  <div class="fixed bottom-0 inset-x-0 z-40 bg-zinc-950/95 backdrop-blur-md border-t border-zinc-800/90">
+    <div class="max-w-md mx-auto px-4 py-3.5 space-y-2.5">
+      <div class="flex items-center justify-between gap-3">
+        <div>
+          <div class="text-[11px] text-zinc-400 font-medium">Итого по вашим параметрам</div>
+          <div id="sticky-total" class="mono text-2xl font-extrabold text-white tracking-tight leading-none mt-0.5"></div>
+        </div>
+        <button type="button" onclick="copySummary()"
+          class="px-3 py-2 rounded-xl bg-zinc-900 border border-zinc-800 hover:border-zinc-700 text-[11px] font-semibold text-zinc-300 transition shrink-0">
+          Скопировать
+        </button>
+      </div>
+
+      <button type="button" onclick="sendToIvan()"
+        class="w-full py-3.5 px-4 rounded-2xl bg-lime-400 hover:bg-lime-300 active:scale-[0.99] text-zinc-950 font-extrabold text-sm transition flex items-center justify-center gap-2 shadow-lg shadow-lime-500/10">
+        <span>Отправить этот расчёт Ивану</span>
+        <span class="text-base leading-none">→</span>
+      </button>
+    </div>
+  </div>
+
+  <script>
+    /* =========================================================================
+       НАСТРОЙКИ КАЛЬКУЛЯТОРА (РЕДАКТИРУЙ ТОЛЬКО ЭТОТ БЛОК!)
+       Чтобы изменить цену, текст или налог — просто поменяй цифру и сохрани.
+       ========================================================================= */
+    const CONFIG = {
+      // Твой Telegram username без символа @
+      telegramUsername: 'kolesnikov_ivan',
+
+      // Налоги (% сверху)
+      taxPercentFL: 4, // % для физлица (поставь 0, если захочешь включить налог в базовую цену)
+      taxPercentUL: 6, // % для юрлица (оплата по счёту)
+
+      // Форматы работы (можно менять цены, тексты или скрывать через enabled: false)
+      formats: [
+        {
+          id: 'diagnostic',
+          enabled: true,
+          badge: '60–90 МИНУТ',
+          title: 'Только диагностика',
+          subtitle: 'Выявить скрытую ловушку и понять её устройство',
+          basePrice: 7000,
+          roomRentPrice: 2000,    // Доплата за аренду кабинета при личной встрече
+          clientSpaceFee: 0,      // Доплата за выезд в помещение клиента
+          sessionsText: '1 встреча · 60–90 мин'
+        },
+        {
+          id: 'express',
+          enabled: true,
+          badge: '1 ЗАХОД · 3–4 ЧАСА',
+          title: 'Интенсивный разбор',
+          subtitle: 'Погрузиться, встряхнуть мозг и разобрать всю ситуацию целиком за один заход',
+          basePrice: 14000,
+          roomRentPrice: 3000,
+          clientSpaceFee: 0,
+          sessionsText: '1 заход · 3–4 часа'
+        },
+        {
+          id: 'full',
+          enabled: true,
+          badge: '1 НЕДЕЛЯ · 3 ВСТРЕЧИ',
+          title: 'Подробный разбор',
+          subtitle: '3 сессии по 60–90 минут с паузами 48 часов на проверку в реальности и освоение алгоритма.',
+          basePrice: 21000,
+          roomRentPrice: 6000,
+          clientSpaceFee: 0,
+          sessionsText: '3 встречи за неделю · паузы 48 ч'
+        }
+      ]
+    };
+
+    /* =========================================================================
+       ЛОГИКА ПРИЛОЖЕНИЯ (ДАЛЬШЕ МОЖНО НЕ ТРОГАТЬ)
+       ========================================================================= */
+
+    // Безопасная инициализация Telegram WebApp API
+    const tg = (window.Telegram && window.Telegram.WebApp) ? window.Telegram.WebApp : null;
+
+    // Активные форматы из конфига
+    const activeFormats = CONFIG.formats.filter((f) => f.enabled);
+
+    // Текущее состояние выбранных пользователем опций
+    const state = {
+      formatId: activeFormats.some((f) => f.id === 'full')
+        ? 'full'
+        : (activeFormats[0] ? activeFormats[0].id : ''),
+      mode: 'online',    // 'online' | 'offline'
+      room: 'my',        // 'my' | 'client'
+      payer: 'fl'        // 'fl' | 'ul'
+    };
+
+    // Лёгкая вибрация внутри Telegram при нажатии кнопок
+    function hapticTap() {
+      try {
+        if (tg && tg.HapticFeedback && typeof tg.HapticFeedback.selectionChanged === 'function') {
+          tg.HapticFeedback.selectionChanged();
+        }
+      } catch (e) {
+        // Игнорируем вне Telegram
+      }
+    }
+
+    // Форматирование суммы в рублях (например: 21 840 ₽)
+    function formatRub(amount) {
+      return `${Math.round(amount).toLocaleString('ru-RU')} ₽`;
+    }
+
+    // Всплывающее уведомление
+    let toastTimeout = null;
+    function showToast(text) {
+      const el = document.getElementById('toast');
+      if (!el) return;
+      el.textContent = text;
+      el.classList.remove('hidden', 'toast-anim');
+      void el.offsetWidth;
+      el.classList.add('toast-anim');
+      if (toastTimeout) clearTimeout(toastTimeout);
+      toastTimeout = setTimeout(() => {
+        el.classList.add('hidden');
+      }, 2400);
+    }
+
+    // Получение объекта выбранного формата
+    function getSelectedFormat() {
+      return activeFormats.find((f) => f.id === state.formatId) || activeFormats[0];
+    }
+
+    // Расчёт итоговой стоимости и составляющих
+    function calculate() {
+      const fmt = getSelectedFormat();
+      const base = fmt ? fmt.basePrice : 0;
+
+      let roomFee = 0;
+      if (state.mode === 'offline' && fmt) {
+        roomFee = state.room === 'my' ? fmt.roomRentPrice : fmt.clientSpaceFee;
+      }
+
+      const subtotal = base + roomFee;
+      const taxPct = state.payer === 'ul' ? CONFIG.taxPercentUL : CONFIG.taxPercentFL;
+      const taxAmount = Math.round(subtotal * (taxPct / 100));
+      const total = subtotal + taxAmount;
+
+      return { fmt, base, roomFee, subtotal, taxPct, taxAmount, total };
+    }
+
+    // Обработчики выбора пользователя
+    function selectFormat(id) {
+      state.formatId = id;
+      hapticTap();
+      updateUI();
+    }
+
+    function selectMode(mode) {
+      state.mode = mode;
+      hapticTap();
+      updateUI();
+    }
+
+    function selectRoom(room) {
+      state.room = room;
+      hapticTap();
+      updateUI();
+    }
+
+    function selectPayer(payer) {
+      state.payer = payer;
+      hapticTap();
+      updateUI();
+    }
+
+    // Отрисовка списка карточек форматов
+    function renderFormats() {
+      const container = document.getElementById('formats-list');
+      if (!container) return;
+
+      container.innerHTML = activeFormats.map((fmt) => {
+        const isActive = fmt.id === state.formatId;
+        const borderCls = isActive
+          ? 'border-lime-400 bg-lime-400/[0.07]'
+          : 'border-zinc-800 bg-zinc-900/75 hover:border-zinc-700';
+        const badgeCls = isActive
+          ? 'bg-lime-400/20 text-lime-300'
+          : 'bg-zinc-800 text-zinc-400';
+        const priceCls = isActive ? 'text-lime-400' : 'text-zinc-200';
+
+        return `
+          <button type="button" onclick="selectFormat('${fmt.id}')"
+            class="option-card w-full text-left p-4 rounded-2xl border ${borderCls}">
+            <div class="flex items-start justify-between gap-3">
+              <div class="space-y-1">
+                <span class="inline-block mono text-[10px] font-bold px-2 py-0.5 rounded-md ${badgeCls}">
+                  ${fmt.badge}
+                </span>
+                <div class="text-sm font-extrabold text-white pt-0.5">${fmt.title}</div>
+              </div>
+              <div class="mono text-sm font-extrabold ${priceCls} shrink-0 pt-0.5">
+                ${formatRub(fmt.basePrice)}
+              </div>
+            </div>
+            <p class="text-[11px] text-zinc-400 mt-1.5 leading-relaxed">${fmt.subtitle}</p>
+          </button>
+        `;
+      }).join('');
+    }
+
+    // Полное обновление интерфейса по текущему state
+    function updateUI() {
+      renderFormats();
+      const calc = calculate();
+      const fmt = calc.fmt;
+
+      // 2. Способ встречи: Онлайн / Лично
+      const btnOnline = document.getElementById('mode-online');
+      const btnOffline = document.getElementById('mode-offline');
+      const dotOnline = document.getElementById('dot-online');
+      const dotOffline = document.getElementById('dot-offline');
+      const roomBlock = document.getElementById('room-block');
+
+      const activeCardCls = 'option-card text-left p-3.5 rounded-2xl border border-lime-400 bg-lime-400/[0.07]';
+      const idleCardCls = 'option-card text-left p-3.5 rounded-2xl border border-zinc-800 bg-zinc-900/75 hover:border-zinc-700';
+
+      if (state.mode === 'online') {
+        btnOnline.className = activeCardCls;
+        btnOffline.className = idleCardCls;
+        dotOnline.className = 'w-4 h-4 rounded-full border-2 border-lime-400 bg-lime-400 flex items-center justify-center';
+        dotOnline.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-zinc-950"></span>';
+        dotOffline.className = 'w-4 h-4 rounded-full border-2 border-zinc-600 flex items-center justify-center';
+        dotOffline.innerHTML = '';
+        roomBlock.classList.add('hidden');
+      } else {
+        btnOnline.className = idleCardCls;
+        btnOffline.className = activeCardCls;
+        dotOffline.className = 'w-4 h-4 rounded-full border-2 border-lime-400 bg-lime-400 flex items-center justify-center';
+        dotOffline.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-zinc-950"></span>';
+        dotOnline.className = 'w-4 h-4 rounded-full border-2 border-zinc-600 flex items-center justify-center';
+        dotOnline.innerHTML = '';
+        roomBlock.classList.remove('hidden');
+      }
+
+      // 2.1 Помещение при выборе «Лично»
+      const btnRoomMy = document.getElementById('room-my');
+      const btnRoomClient = document.getElementById('room-client');
+      const myPriceEl = document.getElementById('room-my-price');
+      const clientPriceEl = document.getElementById('room-client-price');
+
+      if (fmt) {
+        myPriceEl.textContent = fmt.roomRentPrice > 0 ? `+${formatRub(fmt.roomRentPrice)}` : 'Без доплаты';
+        clientPriceEl.textContent = fmt.clientSpaceFee > 0 ? `+${formatRub(fmt.clientSpaceFee)}` : 'Без доплаты';
+      }
+
+      btnRoomMy.className = state.room === 'my'
+        ? 'option-card flex items-center justify-between p-3 rounded-xl border border-amber-400/80 bg-amber-400/10 text-left'
+        : 'option-card flex items-center justify-between p-3 rounded-xl border border-zinc-800 bg-zinc-950/60 hover:border-zinc-700 text-left';
+
+      btnRoomClient.className = state.room === 'client'
+        ? 'option-card flex items-center justify-between p-3 rounded-xl border border-lime-400/80 bg-lime-400/10 text-left'
+        : 'option-card flex items-center justify-between p-3 rounded-xl border border-zinc-800 bg-zinc-950/60 hover:border-zinc-700 text-left';
+
+      // 3. Способ оплаты: Физлицо / Юрлицо
+      const btnFl = document.getElementById('payer-fl');
+      const btnUl = document.getElementById('payer-ul');
+      const badgeFl = document.getElementById('payer-fl-badge');
+      const badgeUl = document.getElementById('payer-ul-badge');
+
+      badgeFl.textContent = CONFIG.taxPercentFL > 0 ? `+${CONFIG.taxPercentFL}%` : '0%';
+      badgeUl.textContent = CONFIG.taxPercentUL > 0 ? `+${CONFIG.taxPercentUL}%` : '0%';
+
+      if (state.payer === 'fl') {
+        btnFl.className = activeCardCls;
+        btnUl.className = idleCardCls;
+        badgeFl.className = 'mono text-[11px] font-bold text-lime-400';
+        badgeUl.className = 'mono text-[11px] font-bold text-zinc-500';
+      } else {
+        btnFl.className = idleCardCls;
+        btnUl.className = activeCardCls;
+        badgeFl.className = 'mono text-[11px] font-bold text-zinc-500';
+        badgeUl.className = 'mono text-[11px] font-bold text-lime-400';
+      }
+
+      // Детализация расчёта
+      const lines = [];
+      if (fmt) {
+        lines.push({ label: `${fmt.title} (${fmt.sessionsText})`, val: formatRub(calc.base) });
+      }
+
+      if (state.mode === 'online') {
+        lines.push({ label: 'Встреча онлайн', val: '0 ₽' });
+      } else if (state.room === 'my') {
+        lines.push({
+          label: 'Лично · аренда кабинета',
+          val: calc.roomFee > 0 ? `+${formatRub(calc.roomFee)}` : '0 ₽'
+        });
+      } else {
+        lines.push({
+          label: 'Лично · в вашем помещении',
+          val: calc.roomFee > 0 ? `+${formatRub(calc.roomFee)}` : '0 ₽'
+        });
+      }
+
+      if (calc.taxPct > 0) {
+        const taxTitle = state.payer === 'fl'
+          ? `Налог (физлицо, ${calc.taxPct}%)`
+          : `Налог (юрлицо, ${calc.taxPct}%)`;
+        lines.push({ label: taxTitle, val: `+${formatRub(calc.taxAmount)}` });
+      } else {
+        lines.push({ label: 'Налог', val: 'Включён' });
+      }
+
+      const breakdownEl = document.getElementById('breakdown-list');
+      breakdownEl.innerHTML = lines.map((item) => `
+        <div class="flex items-center justify-between gap-2">
+          <span class="text-zinc-400">${item.label}</span>
+          <span class="mono font-semibold text-zinc-200 shrink-0">${item.val}</span>
+        </div>
+      `).join('');
+
+      // Итоговые суммы
+      const formattedTotal = formatRub(calc.total);
+      document.getElementById('summary-total').textContent = formattedTotal;
+      document.getElementById('sticky-total').textContent = formattedTotal;
+    }
+
+    // Формирование предзаполненного сообщения для Telegram
+    function buildSummaryText() {
+      const calc = calculate();
+      const fmt = calc.fmt;
+      const commentEl = document.getElementById('comment-input');
+      const comment = commentEl ? commentEl.value.trim() : '';
+
+      let modeText = 'Онлайн';
+      if (state.mode === 'offline') {
+        modeText = state.room === 'my'
+          ? 'Лично (аренда помещения)'
+          : 'Лично (в моём помещении)';
+      }
+
+      const payerText = state.payer === 'fl'
+        ? `Физлицо · перевод${calc.taxPct > 0 ? ` (+${calc.taxPct}%)` : ''}`
+        : `Юрлицо · оплата по счёту${calc.taxPct > 0 ? ` (+${calc.taxPct}%)` : ''}`;
+
+      const parts = [
+        'Иван, привет! Вот мой расчёт из калькулятора «Архитектура Намерения»:',
+        '',
+        `• Формат: ${fmt ? fmt.title : ''} (${fmt ? fmt.sessionsText : ''})`,
+        `• Встреча: ${modeText}`,
+        `• Оплата: ${payerText}`,
+        `• Итого: ${formatRub(calc.total)}`
+      ];
+
+      if (comment) {
+        parts.push('', `Пожелания:\n${comment}`);
+      }
+
+      parts.push('', 'Хочу обсудить детали и удобное время.');
+      return parts.join('\n');
+    }
+
+    // Открытие чата с Иваном в Telegram (работает и в Mini App, и в обычном браузере)
+    function openTelegramChat(messageText) {
+      const url = `https://t.me/${CONFIG.telegramUsername}?text=${encodeURIComponent(messageText)}`;
+      try {
+        if (tg && typeof tg.openTelegramLink === 'function') {
+          tg.openTelegramLink(url);
+          return;
+        }
+      } catch (e) {
+        console.error('Telegram openTelegramLink error:', e);
+      }
+      window.open(url, '_blank', 'noopener,noreferrer');
+    }
+
+    // Кнопка «Отправить этот расчёт Ивану»
+    function sendToIvan() {
+      hapticTap();
+      const text = buildSummaryText();
+      openTelegramChat(text);
+    }
+
+    // Кнопка «Обсудить индивидуальный запрос с Иваном» (лекции, бизнес, группы)
+    function sendCustomInquiry() {
+      hapticTap();
+      const msg = 'Иван, привет! Хочу обсудить отдельный формат (лекция / консультация для бизнеса / корпоративный или групповой тренинг).';
+      openTelegramChat(msg);
+    }
+
+    // Копирование текста расчёта в буфер обмена (надёжно работает внутри iFrame)
+    function copySummary() {
+      hapticTap();
+      const text = buildSummaryText();
+      try {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.setAttribute('readonly', '');
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        showToast('Расчёт скопирован в буфер');
+      } catch (err) {
+        console.error('Copy failed:', err);
+        showToast('Не удалось скопировать');
+      }
+    }
+
+    // Запуск при загрузке страницы
+    window.onload = function () {
+      try {
+        if (tg) {
+          tg.ready();
+          tg.expand();
+          if (typeof tg.setHeaderColor === 'function') tg.setHeaderColor('#0B0B0E');
+          if (typeof tg.setBackgroundColor === 'function') tg.setBackgroundColor('#0B0B0E');
+        }
+      } catch (e) {
+        console.error('Telegram init error:', e);
+      }
+      updateUI();
+    };
+  </script>
+</body>
+</html>
