@@ -3,13 +3,13 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <title>Калькулятор — Архитектура намерения</title>
+  <title>Архитектура намерения — Разбор и калькулятор</title>
   <!-- Официальный скрипт Telegram Mini App -->
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700;800&display=swap" rel="stylesheet" />
   <style>
     :root {
       color-scheme: dark;
@@ -19,7 +19,13 @@
       background-color: #0B0B0E;
       color: #FAFAFA;
       -webkit-tap-highlight-color: transparent;
+      overflow-x: hidden;
+    }
+    body.calc-tab-active {
       padding-bottom: calc(176px + env(safe-area-inset-bottom, 0px));
+    }
+    body.sim-tab-active {
+      padding-bottom: calc(28px + env(safe-area-inset-bottom, 0px));
     }
     .mono {
       font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
@@ -44,6 +50,13 @@
       from { opacity: 0; transform: translateY(-6px); }
       to { opacity: 1; transform: translateY(0); }
     }
+    .fade-step {
+      animation: fadeStep 0.24s ease-out forwards;
+    }
+    @keyframes fadeStep {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
     .sheet-up {
       animation: sheetUp 0.22s ease-out forwards;
     }
@@ -58,176 +71,295 @@
       from { opacity: 0; transform: translate(-50%, 10px); }
       to { opacity: 1; transform: translate(-50%, 0); }
     }
+    .sim-canvas-wrap {
+      box-shadow: 0 20px 44px -18px rgba(0, 0, 0, 0.85), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    }
   </style>
 </head>
-<body class="min-h-screen dot-bg selection:bg-lime-400/25">
+<body class="min-h-screen dot-bg selection:bg-lime-400/25 calc-tab-active">
 
-  <!-- Всплывающее уведомление -->
+  <!-- Всплывающее уведомление (вместо alert) -->
   <div id="toast" class="fixed top-4 left-1/2 -translate-x-1/2 z-50 hidden px-4 py-2.5 rounded-xl bg-zinc-900 border border-lime-400/60 text-lime-300 text-xs font-semibold shadow-2xl whitespace-nowrap"></div>
 
   <!-- Основной контейнер Mini App -->
-  <div class="max-w-md mx-auto px-4 pt-5 space-y-6">
+  <div class="max-w-md mx-auto px-4 pt-4 space-y-5">
 
-    <!-- Шапка приложения -->
-    <header class="flex items-start justify-between gap-3">
-      <div>
-        <div class="inline-flex items-center gap-2 px-2.5 py-1 rounded-lg bg-zinc-900/90 border border-zinc-800 text-[11px] font-bold tracking-widest text-lime-400 mb-2">
+    <!-- Общая шапка и переключатель вкладок -->
+    <header class="space-y-3.5">
+      <div class="flex items-center justify-between gap-2">
+        <div class="inline-flex items-center gap-2 px-2.5 py-1 rounded-lg bg-zinc-900/90 border border-zinc-800 text-[11px] font-bold tracking-widest text-lime-400">
           <span>◯ □ △</span>
           <span class="text-zinc-400 font-medium tracking-normal">Архитектура намерения</span>
         </div>
+        <span class="mono text-[10px] text-zinc-500">@kolesnikov_ivan</span>
+      </div>
+
+      <!-- Переключатель двух режимов приложения -->
+      <nav class="grid grid-cols-2 gap-1.5 p-1 rounded-2xl bg-zinc-900/90 border border-zinc-800" aria-label="Разделы">
+        <button type="button" id="tab-btn-calc" onclick="switchTab('calc')"
+          class="py-2.5 px-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 whitespace-nowrap">
+          <span>Калькулятор</span>
+        </button>
+        <button type="button" id="tab-btn-sim" onclick="switchTab('sim')"
+          class="py-2.5 px-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 whitespace-nowrap">
+          <span>Как это работает</span>
+          <span id="tab-sim-pill" class="mono text-[9px] px-1.5 py-0.5 rounded-md font-extrabold whitespace-nowrap">1 мин</span>
+        </button>
+      </nav>
+    </header>
+
+    <!-- =======================================================================
+         ВКЛАДКА 1: КАЛЬКУЛЯТОР РАЗБОРА
+         ======================================================================= -->
+    <div id="view-calc" class="space-y-6">
+
+      <div>
         <h1 class="text-xl font-extrabold tracking-tight text-white leading-snug">
           Калькулятор разбора
         </h1>
         <p class="text-xs text-zinc-400 mt-1 leading-relaxed">
           Выберите удобный формат и условия — итоговая стоимость посчитается сразу.
         </p>
-      </div>
-    </header>
 
-    <!-- ШАГ 1: Формат работы -->
-    <section class="space-y-2.5">
-      <div class="flex items-center justify-between">
-        <span class="text-[11px] font-bold uppercase tracking-wider text-zinc-400">1. Формат работы</span>
-        <span class="mono text-[11px] text-zinc-600">ШАГ 1/4</span>
-      </div>
-      <div id="formats-list" class="space-y-2.5"></div>
-    </section>
-
-    <!-- ШАГ 2: Способ встречи (Онлайн или Лично) -->
-    <section class="space-y-2.5">
-      <div class="flex items-center justify-between">
-        <span class="text-[11px] font-bold uppercase tracking-wider text-zinc-400">2. Способ встречи</span>
-        <span class="mono text-[11px] text-zinc-600">ШАГ 2/4</span>
-      </div>
-      <div class="grid grid-cols-2 gap-2.5">
-        <button type="button" id="mode-online" onclick="selectMode('online')"
-          class="option-card text-left p-3.5 rounded-2xl border">
-          <div class="flex items-center justify-between mb-1">
-            <span class="text-sm font-bold text-white">Онлайн</span>
-            <span id="dot-online" class="w-4 h-4 rounded-full border-2 flex items-center justify-center"></span>
+        <!-- Мягкая плашка-приглашение в симулятор для сомневающихся -->
+        <button type="button" onclick="switchTab('sim')"
+          class="mt-3 w-full flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-2xl bg-zinc-900/75 hover:bg-zinc-900 border border-zinc-800/90 hover:border-lime-400/40 text-left transition group">
+          <div class="flex items-center gap-2.5 min-w-0">
+            <span class="w-7 h-7 rounded-xl bg-lime-400/12 border border-lime-400/30 text-lime-400 flex items-center justify-center text-xs font-extrabold shrink-0">
+              ▶
+            </span>
+            <div class="min-w-0">
+              <div class="text-xs font-bold text-zinc-100 leading-tight">Непонятно, как проходит разбор?</div>
+              <div class="text-[11px] text-zinc-400 truncate mt-0.5">Посмотрите живой пример за 1 минуту</div>
+            </div>
           </div>
-          <p class="text-[11px] text-zinc-400 leading-snug">Zoom, Яндекс.Телемост или другой удобный способ</p>
-        </button>
-
-        <button type="button" id="mode-offline" onclick="selectMode('offline')"
-          class="option-card text-left p-3.5 rounded-2xl border">
-          <div class="flex items-center justify-between mb-1">
-            <span class="text-sm font-bold text-white">Лично</span>
-            <span id="dot-offline" class="w-4 h-4 rounded-full border-2 flex items-center justify-center"></span>
-          </div>
-          <p class="text-[11px] text-zinc-400 leading-snug">Живая встреча в тихом пространстве</p>
+          <span class="text-xs font-bold text-lime-400 shrink-0 group-hover:translate-x-0.5 transition">→</span>
         </button>
       </div>
 
-      <!-- Условный подблок: выбор помещения (показывается только при выборе «Лично») -->
-      <div id="room-block" class="hidden pt-1 slide-down">
-        <div class="p-3.5 rounded-2xl bg-zinc-900/75 border border-zinc-800 space-y-2.5">
-          <div class="text-[11px] font-bold uppercase tracking-wider text-amber-400/90">
-            Где проводим личную встречу?
-          </div>
-          <div class="grid grid-cols-1 gap-2">
-            <button type="button" id="room-my" onclick="selectRoom('my')"
-              class="option-card flex items-center justify-between p-3 rounded-xl border text-left">
-              <div>
-                <div class="text-xs font-bold text-white">В арендованном кабинете</div>
-                <div class="text-[11px] text-zinc-400 mt-0.5">Иван подберёт тихое пространство</div>
-              </div>
-              <span id="room-my-price" class="mono text-xs font-bold text-amber-400 shrink-0 ml-2"></span>
-            </button>
-
-            <button type="button" id="room-client" onclick="selectRoom('client')"
-              class="option-card flex items-center justify-between p-3 rounded-xl border text-left">
-              <div>
-                <div class="text-xs font-bold text-white">В вашем помещении</div>
-                <div class="text-[11px] text-zinc-400 mt-0.5">Ваш офис или спокойное пространство</div>
-              </div>
-              <span id="room-client-price" class="mono text-xs font-bold text-zinc-400 shrink-0 ml-2"></span>
-            </button>
-          </div>
+      <!-- ШАГ 1: Формат работы -->
+      <section class="space-y-2.5">
+        <div class="flex items-center justify-between">
+          <span class="text-[11px] font-bold uppercase tracking-wider text-zinc-400">1. Формат работы</span>
+          <span class="mono text-[11px] text-zinc-600">ШАГ 1/4</span>
         </div>
-      </div>
-    </section>
+        <div id="formats-list" class="space-y-2.5"></div>
+      </section>
 
-    <!-- ШАГ 3: Способ оплаты -->
-    <section class="space-y-2.5">
-      <div class="flex items-center justify-between">
-        <span class="text-[11px] font-bold uppercase tracking-wider text-zinc-400">3. Способ оплаты</span>
-        <span class="mono text-[11px] text-zinc-600">ШАГ 3/4</span>
-      </div>
-      <div class="grid grid-cols-2 gap-2.5">
-        <button type="button" id="payer-fl" onclick="selectPayer('fl')"
-          class="option-card text-left p-3.5 rounded-2xl border">
-          <div class="flex items-center justify-between mb-1">
-            <span class="text-sm font-bold text-white">Физлицо</span>
-            <span id="payer-fl-badge" class="mono text-[11px] font-bold"></span>
-          </div>
-          <p class="text-[11px] text-zinc-400 leading-snug">Перевод</p>
-        </button>
-
-        <button type="button" id="payer-ul" onclick="selectPayer('ul')"
-          class="option-card text-left p-3.5 rounded-2xl border">
-          <div class="flex items-center justify-between mb-1">
-            <span class="text-sm font-bold text-white">Юрлицо</span>
-            <span id="payer-ul-badge" class="mono text-[11px] font-bold"></span>
-          </div>
-          <p class="text-[11px] text-zinc-400 leading-snug">Оплата по счёту</p>
-        </button>
-      </div>
-    </section>
-
-    <!-- ШАГ 4: Пожелания -->
-    <section class="space-y-2">
-      <div class="flex items-center justify-between">
-        <label for="comment-input" class="text-[11px] font-bold uppercase tracking-wider text-zinc-400">
-          4. Пожелания
-        </label>
-        <div class="flex items-center gap-2">
-          <span id="comment-counter" class="mono text-[11px] text-zinc-500 hidden"></span>
-          <button type="button" id="comment-done-btn" onclick="blurComment()"
-            class="hidden px-2 py-0.5 rounded-md bg-zinc-800 text-lime-400 text-[11px] font-bold">
-            Готово
+      <!-- ШАГ 2: Способ встречи (Онлайн или Лично) -->
+      <section class="space-y-2.5">
+        <div class="flex items-center justify-between">
+          <span class="text-[11px] font-bold uppercase tracking-wider text-zinc-400">2. Способ встречи</span>
+          <span class="mono text-[11px] text-zinc-600">ШАГ 2/4</span>
+        </div>
+        <div class="grid grid-cols-2 gap-2.5">
+          <button type="button" id="mode-online" onclick="selectMode('online')"
+            class="option-card text-left p-3.5 rounded-2xl border">
+            <div class="flex items-center justify-between mb-1">
+              <span class="text-sm font-bold text-white">Онлайн</span>
+              <span id="dot-online" class="w-4 h-4 rounded-full border-2 flex items-center justify-center"></span>
+            </div>
+            <p class="text-[11px] text-zinc-400 leading-snug">Zoom, Яндекс.Телемост или другой удобный способ</p>
           </button>
-          <span id="comment-opt-badge" class="mono text-[11px] text-zinc-600">ОПЦИОНАЛЬНО</span>
+
+          <button type="button" id="mode-offline" onclick="selectMode('offline')"
+            class="option-card text-left p-3.5 rounded-2xl border">
+            <div class="flex items-center justify-between mb-1">
+              <span class="text-sm font-bold text-white">Лично</span>
+              <span id="dot-offline" class="w-4 h-4 rounded-full border-2 flex items-center justify-center"></span>
+            </div>
+            <p class="text-[11px] text-zinc-400 leading-snug">Живая встреча в тихом пространстве</p>
+          </button>
+        </div>
+
+        <!-- Условный подблок: выбор помещения (показывается только при выборе «Лично») -->
+        <div id="room-block" class="hidden pt-1 slide-down">
+          <div class="p-3.5 rounded-2xl bg-zinc-900/75 border border-zinc-800 space-y-2.5">
+            <div class="text-[11px] font-bold uppercase tracking-wider text-amber-400/90">
+              Где проводим личную встречу?
+            </div>
+            <div class="grid grid-cols-1 gap-2">
+              <button type="button" id="room-my" onclick="selectRoom('my')"
+                class="option-card flex items-center justify-between p-3 rounded-xl border text-left">
+                <div>
+                  <div class="text-xs font-bold text-white">В арендованном кабинете</div>
+                  <div class="text-[11px] text-zinc-400 mt-0.5">Иван подберёт тихое пространство</div>
+                </div>
+                <span id="room-my-price" class="mono text-xs font-bold text-amber-400 shrink-0 ml-2"></span>
+              </button>
+
+              <button type="button" id="room-client" onclick="selectRoom('client')"
+                class="option-card flex items-center justify-between p-3 rounded-xl border text-left">
+                <div>
+                  <div class="text-xs font-bold text-white">В вашем помещении</div>
+                  <div class="text-[11px] text-zinc-400 mt-0.5">Ваш офис или спокойное пространство</div>
+                </div>
+                <span id="room-client-price" class="mono text-xs font-bold text-zinc-400 shrink-0 ml-2"></span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ШАГ 3: Способ оплаты -->
+      <section class="space-y-2.5">
+        <div class="flex items-center justify-between">
+          <span class="text-[11px] font-bold uppercase tracking-wider text-zinc-400">3. Способ оплаты</span>
+          <span class="mono text-[11px] text-zinc-600">ШАГ 3/4</span>
+        </div>
+        <div class="grid grid-cols-2 gap-2.5">
+          <button type="button" id="payer-fl" onclick="selectPayer('fl')"
+            class="option-card text-left p-3.5 rounded-2xl border">
+            <div class="flex items-center justify-between mb-1">
+              <span class="text-sm font-bold text-white">Физлицо</span>
+              <span id="payer-fl-badge" class="mono text-[11px] font-bold"></span>
+            </div>
+            <p class="text-[11px] text-zinc-400 leading-snug">Перевод</p>
+          </button>
+
+          <button type="button" id="payer-ul" onclick="selectPayer('ul')"
+            class="option-card text-left p-3.5 rounded-2xl border">
+            <div class="flex items-center justify-between mb-1">
+              <span class="text-sm font-bold text-white">Юрлицо</span>
+              <span id="payer-ul-badge" class="mono text-[11px] font-bold"></span>
+            </div>
+            <p class="text-[11px] text-zinc-400 leading-snug">Оплата по счёту</p>
+          </button>
+        </div>
+      </section>
+
+      <!-- ШАГ 4: Пожелания -->
+      <section class="space-y-2">
+        <div class="flex items-center justify-between">
+          <label for="comment-input" class="text-[11px] font-bold uppercase tracking-wider text-zinc-400">
+            4. Пожелания
+          </label>
+          <div class="flex items-center gap-2">
+            <span id="comment-counter" class="mono text-[11px] text-zinc-500 hidden"></span>
+            <button type="button" id="comment-done-btn" onclick="blurComment()"
+              class="hidden px-2 py-0.5 rounded-md bg-zinc-800 text-lime-400 text-[11px] font-bold">
+              Готово
+            </button>
+            <span id="comment-opt-badge" class="mono text-[11px] text-zinc-600">ОПЦИОНАЛЬНО</span>
+          </div>
+        </div>
+        <textarea id="comment-input" rows="3" maxlength="400"
+          onfocus="handleCommentFocus()"
+          onblur="handleCommentBlur()"
+          oninput="handleCommentInput()"
+          placeholder="Например: удобные дни и время, предпочтительный способ связи или особые условия..."
+          class="w-full rounded-2xl bg-zinc-900/90 border border-zinc-800 px-3.5 py-3 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-lime-400/70 resize-none leading-relaxed"></textarea>
+      </section>
+
+      <!-- Детализация расчёта -->
+      <section class="p-4 rounded-2xl bg-zinc-900/80 border border-zinc-800 space-y-2.5">
+        <div class="text-[11px] font-bold uppercase tracking-wider text-zinc-400">Что входит в расчёт</div>
+        <div id="breakdown-list" class="space-y-1.5 text-xs"></div>
+        <div class="pt-2 border-t border-zinc-800 flex items-baseline justify-between">
+          <span class="text-xs font-semibold text-zinc-300">Итоговая стоимость</span>
+          <span id="summary-total" class="mono text-lg font-extrabold text-lime-400"></span>
+        </div>
+      </section>
+
+      <!-- Сноска про B2B, лекции и групповые форматы -->
+      <section class="p-4 rounded-2xl bg-zinc-900/45 border border-zinc-800/80 space-y-2">
+        <div class="flex items-center gap-2">
+          <span class="w-1.5 h-1.5 rounded-full bg-lime-400"></span>
+          <span class="text-xs font-bold text-zinc-200">Группы, лекции и задачи для бизнеса</span>
+        </div>
+        <p class="text-[11px] text-zinc-400 leading-relaxed">
+          Лекции, консультации для бизнеса, корпоративные и групповые тренинги обсуждаются отдельно под вашу задачу и состав участников.
+        </p>
+        <button type="button" onclick="sendCustomInquiry()"
+          class="inline-flex items-center gap-1.5 text-xs font-bold text-lime-400 hover:text-lime-300 pt-0.5 transition">
+          <span>Обсудить индивидуальный запрос с Иваном</span>
+          <span>→</span>
+        </button>
+      </section>
+
+    </div>
+
+    <!-- =======================================================================
+         ВКЛАДКА 2: ИНТЕРАКТИВНЫЙ СИМУЛЯТОР (4 ШАГА · 1 МИН)
+         ======================================================================= -->
+    <div id="view-sim" class="hidden space-y-4">
+
+      <!-- Интерактивный прогресс-бар из 4 шагов (можно нажимать на любой) -->
+      <div class="grid grid-cols-4 gap-1.5" role="tablist" aria-label="Шаги разбора">
+        <button type="button" id="sim-pill-0" onclick="goToSimStep(0)"
+          class="py-2 px-1.5 rounded-xl border text-center transition">
+          <div class="mono text-[11px] font-extrabold leading-none">◯</div>
+          <div class="text-[10px] font-semibold mt-1 leading-none">Ловушка</div>
+        </button>
+        <button type="button" id="sim-pill-1" onclick="goToSimStep(1)"
+          class="py-2 px-1.5 rounded-xl border text-center transition">
+          <div class="mono text-[11px] font-extrabold leading-none">□</div>
+          <div class="text-[10px] font-semibold mt-1 leading-none">Причина</div>
+        </button>
+        <button type="button" id="sim-pill-2" onclick="goToSimStep(2)"
+          class="py-2 px-1.5 rounded-xl border text-center transition">
+          <div class="mono text-[11px] font-extrabold leading-none">△</div>
+          <div class="text-[10px] font-semibold mt-1 leading-none">Щелчок</div>
+        </button>
+        <button type="button" id="sim-pill-3" onclick="goToSimStep(3)"
+          class="py-2 px-1.5 rounded-xl border text-center transition">
+          <div class="mono text-[11px] font-extrabold leading-none">•</div>
+          <div class="text-[10px] font-semibold mt-1 leading-none">Выход</div>
+        </button>
+      </div>
+
+      <!-- Интерактивная Canvas-сцена (поддерживает свайп влево/вправо на телефоне) -->
+      <div id="sim-stage-box"
+        class="sim-canvas-wrap relative w-full rounded-3xl overflow-hidden bg-[#09090B] border border-zinc-800/95 select-none">
+        <canvas id="sim-canvas" class="block w-full h-[252px] sm:h-[276px]"></canvas>
+        <!-- Метка живого примера в углу -->
+        <div id="sim-stage-tag"
+          class="pointer-events-none absolute top-3 left-3 px-2.5 py-1 rounded-lg bg-zinc-950/80 border border-zinc-800/90 backdrop-blur-sm mono text-[10px] font-bold tracking-wider text-zinc-400">
+          ЛОВУШКА
+        </div>
+        <div id="sim-stage-step-num"
+          class="pointer-events-none absolute top-3 right-3 px-2 py-1 rounded-lg bg-zinc-950/80 border border-zinc-800/90 backdrop-blur-sm mono text-[10px] font-bold text-zinc-400">
+          1 / 4
         </div>
       </div>
-      <textarea id="comment-input" rows="3" maxlength="400"
-        onfocus="handleCommentFocus()"
-        onblur="handleCommentBlur()"
-        oninput="handleCommentInput()"
-        placeholder="Например: удобные дни и время, предпочтительный способ связи или особые условия..."
-        class="w-full rounded-2xl bg-zinc-900/90 border border-zinc-800 px-3.5 py-3 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-lime-400/70 resize-none leading-relaxed"></textarea>
-    </section>
 
-    <!-- Детализация расчёта -->
-    <section class="p-4 rounded-2xl bg-zinc-900/80 border border-zinc-800 space-y-2.5">
-      <div class="text-[11px] font-bold uppercase tracking-wider text-zinc-400">Что входит в расчёт</div>
-      <div id="breakdown-list" class="space-y-1.5 text-xs"></div>
-      <div class="pt-2 border-t border-zinc-800 flex items-baseline justify-between">
-        <span class="text-xs font-semibold text-zinc-300">Итоговая стоимость</span>
-        <span id="summary-total" class="mono text-lg font-extrabold text-lime-400"></span>
+      <!-- Карточка пояснения к текущему шагу -->
+      <div id="sim-card" class="p-4 rounded-2xl bg-zinc-900/85 border border-zinc-800 space-y-3 fade-step">
+        <div class="flex items-center justify-between gap-2">
+          <span id="sim-badge" class="mono text-[10px] font-extrabold px-2 py-0.5 rounded-md"></span>
+          <span id="sim-hint" class="text-[10px] text-zinc-500"></span>
+        </div>
+        <h2 id="sim-title" class="text-base font-extrabold text-white leading-snug"></h2>
+        <div id="sim-body" class="text-xs text-zinc-300 leading-relaxed space-y-2.5"></div>
       </div>
-    </section>
 
-    <!-- Сноска про B2B, лекции и групповые форматы -->
-    <section class="p-4 rounded-2xl bg-zinc-900/45 border border-zinc-800/80 space-y-2">
-      <div class="flex items-center gap-2">
-        <span class="w-1.5 h-1.5 rounded-full bg-lime-400"></span>
-        <span class="text-xs font-bold text-zinc-200">Группы, лекции и задачи для бизнеса</span>
+      <!-- Кнопки управления шагами симулятора -->
+      <div class="flex items-center gap-2.5 pt-0.5">
+        <button type="button" id="sim-prev-btn" onclick="prevSimStep()"
+          class="px-4 py-3.5 rounded-2xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-bold text-zinc-300 transition shrink-0">
+          ←
+        </button>
+        <button type="button" id="sim-next-btn" onclick="nextSimStep()"
+          class="flex-1 py-3.5 px-4 rounded-2xl bg-lime-400 hover:bg-lime-300 active:scale-[0.99] text-zinc-950 font-extrabold text-sm transition flex items-center justify-center gap-2 shadow-lg shadow-lime-500/10">
+          <span id="sim-next-label">Понять причину</span>
+          <span class="text-base leading-none">→</span>
+        </button>
       </div>
-      <p class="text-[11px] text-zinc-400 leading-relaxed">
-        Лекции, консультации для бизнеса, корпоративные и групповые тренинги обсуждаются отдельно под вашу задачу и состав участников.
-      </p>
-      <button type="button" onclick="sendCustomInquiry()"
-        class="inline-flex items-center gap-1.5 text-xs font-bold text-lime-400 hover:text-lime-300 pt-0.5 transition">
-        <span>Обсудить индивидуальный запрос с Иваном</span>
-        <span>→</span>
-      </button>
-    </section>
+
+      <!-- Короткий подвал на финальном шаге -->
+      <div id="sim-restart-wrap" class="hidden text-center pt-0.5">
+        <button type="button" onclick="goToSimStep(0)"
+          class="text-[11px] font-semibold text-zinc-500 hover:text-zinc-300 transition py-1 px-3">
+          ↺ Пройти пример ещё раз
+        </button>
+      </div>
+
+    </div>
 
   </div>
 
-  <!-- Фиксированная нижняя панель с итогом и главной кнопкой -->
-  <div class="fixed bottom-0 inset-x-0 z-40 bg-zinc-950/95 backdrop-blur-md border-t border-zinc-800/90">
+  <!-- Фиксированная нижняя панель калькулятора (видна только на вкладке «Калькулятор») -->
+  <div id="calc-sticky-bar" class="fixed bottom-0 inset-x-0 z-40 bg-zinc-950/95 backdrop-blur-md border-t border-zinc-800/90">
     <div class="max-w-md mx-auto px-4 pt-3.5 sticky-safe space-y-2.5">
       <div class="flex items-center justify-between gap-3">
         <div>
@@ -329,56 +461,135 @@
           basePrice: 21000,
           roomRentPrice: 6000,
           clientSpaceFee: 0,
-          sessionsText: '3 встречи по 60-90 мин · паузы 48 ч'
+          sessionsText: '3 встречи по 60–90 мин · паузы 48 ч'
         }
       ]
     };
 
     /* =========================================================================
-       ЛОГИКА ПРИЛОЖЕНИЯ
+       КОНТЕНТ 4 ШАГОВ ИНТЕРАКТИВНОГО СИМУЛЯТОРА (СКВОЗНОЙ ПРИМЕР)
        ========================================================================= */
+    const SIM_STEPS = [
+      {
+        badge: 'ШАГ 1 · ◯ ЛОВУШКА',
+        badgeCls: 'bg-rose-500/15 text-rose-300 border border-rose-500/30',
+        hint: 'Замкнутый круг',
+        tag: 'ЛОВУШКА',
+        title: 'Находим ловушку',
+        bodyHtml: `
+          <p>Любая проблема ходит по кругу из трёх состояний: <span class="text-white font-semibold">Мираж</span> (хочу, но не делаю), <span class="text-white font-semibold">Имитация</span> (делаю не то) и <span class="text-white font-semibold">Каторга</span> (делаю, но не хочу). В жизни они разнесены во времени, поэтому мы не замечаем ловушку, в которой застряли.</p>
+          <div class="p-3 rounded-xl bg-zinc-950/90 border border-zinc-800/90 text-[11.5px] text-zinc-200 leading-relaxed">
+            <span class="mono text-[10px] font-bold text-rose-400 uppercase block mb-1">Пример:</span>
+            Хочу начать бегать (<span class="text-rose-300 font-semibold">Мираж</span>) → неделями выбираю кроссовки и форму (<span class="text-amber-300 font-semibold">Имитация</span>) → еле тяну каждый день с вялостью и одышкой (<span class="text-rose-400 font-semibold">Каторга</span>).
+          </div>
+          <p class="text-zinc-400">Этот цикл появился и закрепился не случайно — в его центре скрыта причина, которая поддерживает движение и не даёт выбраться из ловушки.</p>
+        `,
+        nextLabel: 'Понять причину'
+      },
+      {
+        badge: 'ШАГ 2 · □ ПРИЧИНА',
+        badgeCls: 'bg-amber-500/15 text-amber-300 border border-amber-500/30',
+        hint: 'Расчёт мозга',
+        tag: 'РАСЧЁТ МОЗГА',
+        title: 'Вытягиваем скрытую тревогу',
+        bodyHtml: `
+          <p>По цепочке выходим на причину, которой всегда является скрытая тревога, даже если вы её не замечаете.</p>
+          <div class="p-3 rounded-xl bg-rose-950/35 border border-rose-500/35 text-[11.5px] text-zinc-100 leading-relaxed">
+            <span class="mono text-[10px] font-bold text-rose-400 uppercase block mb-1">Найденная тревога:</span>
+            «Я никогда не бегал — задохнусь через 5 минут, облажаюсь, и люди в парке будут косо смотреть, как на идиота».
+          </div>
+          <p class="text-zinc-400">Для мозга любой риск весит <span class="text-rose-300 font-bold">в 2,25 раза тяжелее</span> выгоды, поэтому на весах загорается «Отказано» и любые уговоры не срабатывают.</p>
+        `,
+        nextLabel: 'Увидеть закономерность'
+      },
+      {
+        badge: 'ШАГ 3 · △ ЩЕЛЧОК',
+        badgeCls: 'bg-lime-400/15 text-lime-300 border border-lime-400/30',
+        hint: 'Ошибка предсказания',
+        tag: 'РАЗРЫВ АВТОПИЛОТА',
+        title: 'Ломаем ловушку',
+        bodyHtml: `
+          <div class="p-3 rounded-xl bg-zinc-950/90 border border-lime-400/35 text-zinc-100 font-semibold leading-snug">
+            «Я покупаю дорогую экипировку, чтобы начать бегать, <span class="text-lime-400">и именно поэтому</span> не начинаю бегать (задохнуться в крутой форме ещё стыднее)».
+          </div>
+          <p class="text-zinc-300">Когда мозг целиком видит причинно-следственную связь, раньше разнесённую во времени, он уже не может действовать по-старому. Он не выносит прямых противоречий.</p>
+          <p class="text-zinc-400">Мощная <span class="text-white font-semibold">ошибка предсказания</span> показывает неэффективный расход ресурса и запускает процесс перерасчёта: старая защита теряет смысл, поведение начинает меняться, а энергия высвобождается для спокойного действия без борьбы с собой.</p>
+        `,
+        nextLabel: 'Что я получу в итоге?'
+      },
+      {
+        badge: 'ИТОГ · • ВЫХОД',
+        badgeCls: 'bg-lime-400/20 text-lime-300 border border-lime-400/40',
+        hint: 'Точка «0»',
+        tag: 'РЕЗУЛЬТАТ РАЗБОРА',
+        title: 'Что меняется после разбора',
+        bodyHtml: `
+          <div class="p-3 rounded-xl bg-lime-950/30 border border-lime-400/30 text-[11.5px] text-zinc-200 leading-relaxed">
+            <span class="mono text-[10px] font-bold text-lime-400 uppercase block mb-1">В нашем примере:</span>
+            Вы просто обнаруживаете себя в тонусе на десятом за месяц велозаезде вместо бега — потому что телу нужен был тонус, а не именно пробежки в парке.
+          </div>
+          <ul class="space-y-2">
+            <li class="flex items-start gap-2">
+              <span class="text-lime-400 font-bold mt-0.5">✓</span>
+              <span><span class="text-white font-semibold">Лёгкий старт вместо ступора</span> — скрытый тормоз снят, и первый шаг больше не требует насилия над собой.</span>
+            </li>
+            <li class="flex items-start gap-2">
+              <span class="text-lime-400 font-bold mt-0.5">✓</span>
+              <span><span class="text-white font-semibold">Собственный драйв вместо «надо»</span> — энергия, уходившая в тревогу и внутренний торг, возвращается в живое действие.</span>
+            </li>
+            <li class="flex items-start gap-2">
+              <span class="text-lime-400 font-bold mt-0.5">✓</span>
+              <span><span class="text-white font-semibold">Чистый фокус вместо суеты</span> — вы видите настоящую причину и перестаёте тратить силы на имитацию.</span>
+            </li>
+          </ul>
+          <p class="text-[11px] text-zinc-400 pt-0.5">Вам не нужно как-то готовиться — вы просто описываете ситуацию своими словами, а я веду вас по алгоритму.</p>
+        `,
+        nextLabel: 'Подобрать формат и стоимость'
+      }
+    ];
 
-    // Определение среды Telegram Mini App
+    /* =========================================================================
+       СОСТОЯНИЕ ПРИЛОЖЕНИЯ И TELEGRAM SDK
+       ========================================================================= */
     const tg = (window.Telegram && window.Telegram.WebApp) ? window.Telegram.WebApp : null;
     const isInsideTelegram = Boolean(tg && tg.platform && tg.platform !== 'unknown');
     const isInIframe = (function () {
       try { return window.self !== window.top; } catch (e) { return true; }
     })();
 
-    // Список активных форматов
     const activeFormats = CONFIG.formats.filter((f) => f.enabled);
 
-    // Текущее состояние выбранных параметров
     const state = {
+      activeTab: 'calc', // 'calc' | 'sim'
+      simStep: 0,        // 0..3
       formatId: activeFormats.some((f) => f.id === 'full')
         ? 'full'
         : (activeFormats[0] ? activeFormats[0].id : ''),
-      mode: 'online', // 'online' | 'offline'
-      room: 'my',     // 'my' | 'client'
-      payer: 'fl',    // 'fl' | 'ul'
+      mode: 'online',    // 'online' | 'offline'
+      room: 'my',        // 'my' | 'client'
+      payer: 'fl',       // 'fl' | 'ul'
       lastMessage: ''
     };
 
     let fallbackTimer = null;
     let toastTimeout = null;
 
-    // Лёгкая вибрация внутри Telegram при нажатии кнопок
-    function hapticTap() {
+    // Лёгкая нативная вибрация внутри Telegram
+    function hapticTap(style) {
       try {
-        if (isInsideTelegram && tg.HapticFeedback && typeof tg.HapticFeedback.selectionChanged === 'function') {
+        if (!isInsideTelegram || !tg.HapticFeedback) return;
+        if (style === 'impact' && typeof tg.HapticFeedback.impactOccurred === 'function') {
+          tg.HapticFeedback.impactOccurred('medium');
+        } else if (typeof tg.HapticFeedback.selectionChanged === 'function') {
           tg.HapticFeedback.selectionChanged();
         }
-      } catch (e) {
-        // Игнорируем вне Telegram
-      }
+      } catch (e) {}
     }
 
-    // Форматирование суммы в рублях (например: 21 840 ₽)
     function formatRub(amount) {
       return `${Math.round(amount).toLocaleString('ru-RU')} ₽`;
     }
 
-    // Показ всплывающего уведомления
     function showToast(text) {
       const el = document.getElementById('toast');
       if (!el) return;
@@ -392,7 +603,6 @@
       }, 2400);
     }
 
-    // Надёжное копирование в буфер обмена без дёргания прокрутки на iOS
     function copyTextToClipboard(text) {
       let copied = false;
       try {
@@ -423,7 +633,85 @@
       return copied;
     }
 
-    // Управление полем «Пожелания» (удобство на мобильной клавиатуре)
+    /* =========================================================================
+       ПЕРЕКЛЮЧЕНИЕ ВКЛАДОК И СИСТЕМНАЯ КНОПКА «НАЗАД»
+       ========================================================================= */
+    function syncTelegramBackButton() {
+      try {
+        if (!isInsideTelegram || !tg.BackButton) return;
+        const modal = document.getElementById('send-modal');
+        const modalOpen = modal && !modal.classList.contains('hidden');
+        if (modalOpen || (state.activeTab === 'sim' && state.simStep > 0)) {
+          tg.BackButton.show();
+        } else {
+          tg.BackButton.hide();
+        }
+      } catch (e) {}
+    }
+
+    function handleTelegramBack() {
+      const modal = document.getElementById('send-modal');
+      if (modal && !modal.classList.contains('hidden')) {
+        closeSendModal();
+        return;
+      }
+      if (state.activeTab === 'sim' && state.simStep > 0) {
+        prevSimStep();
+      }
+    }
+
+    function switchTab(tab, silent) {
+      state.activeTab = tab;
+      if (!silent) hapticTap();
+
+      const viewCalc = document.getElementById('view-calc');
+      const viewSim = document.getElementById('view-sim');
+      const stickyBar = document.getElementById('calc-sticky-bar');
+      const btnCalc = document.getElementById('tab-btn-calc');
+      const btnSim = document.getElementById('tab-btn-sim');
+      const simPill = document.getElementById('tab-sim-pill');
+
+      const activeTabCls = 'py-2.5 px-2.5 rounded-xl text-xs font-extrabold bg-zinc-800 text-white shadow-sm transition flex items-center justify-center gap-1.5 whitespace-nowrap';
+      const idleTabCls = 'py-2.5 px-2.5 rounded-xl text-xs font-semibold text-zinc-400 hover:text-zinc-200 transition flex items-center justify-center gap-1.5 whitespace-nowrap';
+
+      if (tab === 'sim') {
+        blurComment();
+        viewCalc.classList.add('hidden');
+        stickyBar.classList.add('hidden');
+        viewSim.classList.remove('hidden');
+        document.body.classList.remove('calc-tab-active');
+        document.body.classList.add('sim-tab-active');
+
+        btnSim.className = activeTabCls;
+        btnCalc.className = idleTabCls;
+        simPill.className = 'mono text-[9px] px-1.5 py-0.5 rounded-md font-extrabold bg-lime-400 text-zinc-950 whitespace-nowrap';
+
+        // Инициализируем размеры Canvas после отображения контейнера
+        requestAnimationFrame(() => {
+          resizeSimCanvas();
+          startSimLoop();
+        });
+        updateSimUI();
+      } else {
+        stopSimLoop();
+        viewSim.classList.add('hidden');
+        viewCalc.classList.remove('hidden');
+        stickyBar.classList.remove('hidden');
+        document.body.classList.remove('sim-tab-active');
+        document.body.classList.add('calc-tab-active');
+
+        btnCalc.className = activeTabCls;
+        btnSim.className = idleTabCls;
+        simPill.className = 'mono text-[9px] px-1.5 py-0.5 rounded-md font-extrabold bg-lime-400/15 text-lime-400 whitespace-nowrap';
+      }
+
+      try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch (e) {}
+      syncTelegramBackButton();
+    }
+
+    /* =========================================================================
+       ЛОГИКА КАЛЬКУЛЯТОРА
+       ========================================================================= */
     function handleCommentFocus() {
       const doneBtn = document.getElementById('comment-done-btn');
       const optBadge = document.getElementById('comment-opt-badge');
@@ -465,12 +753,10 @@
       if (input) input.blur();
     }
 
-    // Получение выбранного формата
     function getSelectedFormat() {
       return activeFormats.find((f) => f.id === state.formatId) || activeFormats[0];
     }
 
-    // Расчёт стоимости и составляющих
     function calculate() {
       const fmt = getSelectedFormat();
       const base = fmt ? fmt.basePrice : 0;
@@ -488,7 +774,6 @@
       return { fmt, base, roomFee, subtotal, taxPct, taxAmount, total };
     }
 
-    // Обработчики кликов
     function selectFormat(id) {
       state.formatId = id;
       hapticTap();
@@ -513,7 +798,6 @@
       updateUI();
     }
 
-    // Отрисовка карточек форматов
     function renderFormats() {
       const container = document.getElementById('formats-list');
       if (!container) return;
@@ -548,13 +832,11 @@
       }).join('');
     }
 
-    // Обновление всего интерфейса
     function updateUI() {
       renderFormats();
       const calc = calculate();
       const fmt = calc.fmt;
 
-      // 2. Способ встречи
       const btnOnline = document.getElementById('mode-online');
       const btnOffline = document.getElementById('mode-offline');
       const dotOnline = document.getElementById('dot-online');
@@ -582,7 +864,6 @@
         roomBlock.classList.remove('hidden');
       }
 
-      // 2.1 Выбор помещения
       const btnRoomMy = document.getElementById('room-my');
       const btnRoomClient = document.getElementById('room-client');
       const myPriceEl = document.getElementById('room-my-price');
@@ -601,7 +882,6 @@
         ? 'option-card flex items-center justify-between p-3 rounded-xl border border-lime-400/80 bg-lime-400/10 text-left'
         : 'option-card flex items-center justify-between p-3 rounded-xl border border-zinc-800 bg-zinc-950/60 hover:border-zinc-700 text-left';
 
-      // 3. Способ оплаты
       const btnFl = document.getElementById('payer-fl');
       const btnUl = document.getElementById('payer-ul');
       const badgeFl = document.getElementById('payer-fl-badge');
@@ -622,7 +902,6 @@
         badgeUl.className = 'mono text-[11px] font-bold text-lime-400';
       }
 
-      // Детализация расчёта
       const lines = [];
       if (fmt) {
         lines.push({ label: `${fmt.title} (${fmt.sessionsText})`, val: formatRub(calc.base) });
@@ -659,19 +938,16 @@
         </div>
       `).join('');
 
-      // Итоговые суммы
       const formattedTotal = formatRub(calc.total);
       document.getElementById('summary-total').textContent = formattedTotal;
       document.getElementById('sticky-total').textContent = formattedTotal;
     }
 
-    // Получение очищенного комментария
     function getCommentText() {
       const commentEl = document.getElementById('comment-input');
       return commentEl ? commentEl.value.trim() : '';
     }
 
-    // Формирование чистого структурированного сообщения для отправки в Telegram
     function buildSummaryText() {
       const calc = calculate();
       const fmt = calc.fmt;
@@ -705,12 +981,10 @@
       return parts.join('\n');
     }
 
-    // Чистый юзернейм без @
     function getCleanUsername() {
       return String(CONFIG.telegramUsername || '').replace(/^@+/, '').trim();
     }
 
-    // Шторка-страховка (с поддержкой кнопки «Назад» в Telegram)
     function openSendModal(messageText, plainUrl) {
       state.lastMessage = messageText;
       const username = getCleanUsername();
@@ -723,25 +997,15 @@
       if (directLink) directLink.href = plainUrl;
       if (directLabel) directLabel.textContent = `Открыть чат @${username} →`;
       if (modal) modal.classList.remove('hidden');
-
-      try {
-        if (isInsideTelegram && tg.BackButton) {
-          tg.BackButton.show();
-        }
-      } catch (e) {}
+      syncTelegramBackButton();
     }
 
     function closeSendModal() {
       const modal = document.getElementById('send-modal');
       if (modal) modal.classList.add('hidden');
-      try {
-        if (isInsideTelegram && tg.BackButton) {
-          tg.BackButton.hide();
-        }
-      } catch (e) {}
+      syncTelegramBackButton();
     }
 
-    // Прямой переход в чат из страховочной шторки (без ?text=)
     function handleDirectChatTap(event) {
       hapticTap();
       const username = getCleanUsername();
@@ -766,17 +1030,14 @@
       }
     }
 
-    // Универсальный запуск чата с автокопированием и умной отложенной шторкой-страховкой
     function openTelegramChat(messageText) {
       blurComment();
       const username = getCleanUsername();
       const urlWithText = `https://t.me/${username}?text=${encodeURIComponent(messageText)}`;
       const plainUrl = `https://t.me/${username}`;
 
-      // 1. Всегда копируем текст в буфер до перехода
       copyTextToClipboard(messageText);
 
-      // 2. Показываем шторку-страховку только если через 650 мс экран остался открытым
       if (fallbackTimer) clearTimeout(fallbackTimer);
       fallbackTimer = setTimeout(() => {
         if (document.visibilityState === 'visible') {
@@ -784,7 +1045,6 @@
         }
       }, 650);
 
-      // 3. Внутри Telegram открываем чат с предзаполненным сообщением
       if (isInsideTelegram && typeof tg.openTelegramLink === 'function') {
         try {
           tg.openTelegramLink(urlWithText);
@@ -794,7 +1054,6 @@
         }
       }
 
-      // 4. Во встроенном превью открываем в новой вкладке, в обычном браузере — прямой переход
       if (isInIframe) {
         window.open(urlWithText, '_blank', 'noopener,noreferrer');
       } else {
@@ -806,14 +1065,12 @@
       }
     }
 
-    // Кнопка «Отправить этот расчёт Ивану»
     function sendToIvan() {
-      hapticTap();
+      hapticTap('impact');
       const text = buildSummaryText();
       openTelegramChat(text);
     }
 
-    // Кнопка «Обсудить индивидуальный запрос с Иваном» (подхватывает пожелания, если заполнены)
     function sendCustomInquiry() {
       hapticTap();
       const comment = getCommentText();
@@ -826,7 +1083,6 @@
       openTelegramChat(parts.join('\n'));
     }
 
-    // Кнопка «Скопировать» рядом с итогом
     function copySummary() {
       hapticTap();
       const text = buildSummaryText();
@@ -834,14 +1090,821 @@
       showToast('Расчёт скопирован в буфер');
     }
 
-    // Закрытие шторки по Escape на компьютере
-    document.addEventListener('keydown', function (e) {
-      if (e.key === 'Escape') closeSendModal();
+    /* =========================================================================
+       ИНТЕРАКТИВНЫЙ 4-ШАГОВЫЙ СИМУЛЯТОР (CANVAS 60 FPS + ЖЕСТЫ)
+       ========================================================================= */
+    const simCanvas = document.getElementById('sim-canvas');
+    const simCtx = simCanvas ? simCanvas.getContext('2d') : null;
+
+    let simW = 400;
+    let simH = 260;
+    let simRafId = null;
+    let simGlobalTime = 0;
+    let simStepElapsed = 0;
+    let simLastTs = 0;
+
+    // Частицы для Шага 1 (затягивание в чёрную дыру)
+    const orbitParticles = [];
+    // Осколки и вспышка для Шага 3 (разрыв круга и выход в вектор)
+    const burstParticles = [];
+    // Потоковые точки для Шага 4 (спокойное движение вперёд)
+    const flowDots = [];
+
+    function initSimParticles() {
+      orbitParticles.length = 0;
+      for (let i = 0; i < 64; i++) {
+        orbitParticles.push({
+          angle: Math.random() * Math.PI * 2,
+          progress: Math.random(),
+          speed: 0.24 + Math.random() * 0.2,
+          size: 1.2 + Math.random() * 1.5,
+          swirl: 1.8 + Math.random() * 1.2,
+          rose: Math.random() < 0.72
+        });
+      }
+
+      flowDots.length = 0;
+      for (let i = 0; i < 18; i++) {
+        flowDots.push({
+          t: Math.random(),
+          speed: 0.22 + Math.random() * 0.14,
+          offsetY: (Math.random() - 0.5) * 18,
+          size: 1.4 + Math.random() * 1.6
+        });
+      }
+    }
+
+    function resetBurstParticles() {
+      burstParticles.length = 0;
+      for (let i = 0; i < 36; i++) {
+        const a = Math.random() * Math.PI * 2;
+        burstParticles.push({
+          angle: a,
+          speed: 38 + Math.random() * 95,
+          size: 1.4 + Math.random() * 2.2,
+          isLime: i % 3 !== 0
+        });
+      }
+    }
+
+    function resizeSimCanvas() {
+      if (!simCanvas || !simCtx) return;
+      const rect = simCanvas.getBoundingClientRect();
+      if (!rect.width || !rect.height) return;
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      simW = rect.width;
+      simH = rect.height;
+      simCanvas.width = Math.round(simW * dpr);
+      simCanvas.height = Math.round(simH * dpr);
+      simCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+
+    function simRoundRect(c, x, y, w, h, r) {
+      const rad = Math.min(r, w / 2, h / 2);
+      c.beginPath();
+      c.moveTo(x + rad, y);
+      c.arcTo(x + w, y, x + w, y + h, rad);
+      c.arcTo(x + w, y + h, x, y + h, rad);
+      c.arcTo(x, y + h, x, y, rad);
+      c.arcTo(x, y, x + w, y, rad);
+      c.closePath();
+    }
+
+    // Фон сцены симулятора
+    function drawSimBg(tintRgb, glowX, glowY, glowAlpha) {
+      simCtx.fillStyle = '#09090B';
+      simCtx.fillRect(0, 0, simW, simH);
+
+      const g = simCtx.createRadialGradient(glowX, glowY, 10, glowX, glowY, Math.max(simW, simH) * 0.62);
+      g.addColorStop(0, `rgba(${tintRgb}, ${glowAlpha})`);
+      g.addColorStop(0.55, `rgba(${tintRgb}, ${(glowAlpha * 0.25).toFixed(3)})`);
+      g.addColorStop(1, 'rgba(9, 9, 11, 0)');
+      simCtx.fillStyle = g;
+      simCtx.fillRect(0, 0, simW, simH);
+
+      // Едва заметная архитектурная точечная сетка
+      simCtx.fillStyle = 'rgba(255, 255, 255, 0.05)';
+      const step = 20;
+      for (let x = 10; x < simW; x += step) {
+        for (let y = 10; y < simH; y += step) {
+          simCtx.fillRect(x, y, 1.2, 1.2);
+        }
+      }
+    }
+
+    // ШАГ 1: ◯ Замкнутая орбита и чёрная дыра «?»
+    function drawSimStep0(dt) {
+      const cx = simW / 2;
+      const cy = simH / 2 + 12;
+      const s = Math.min(simW / 390, simH / 260);
+      const orbitR = 74 * s;
+      const coreR = 24 * s;
+
+      drawSimBg('225, 29, 72', cx, cy, 0.26);
+
+      // Втягивающиеся гравитационные кольца
+      for (let i = 0; i < 3; i++) {
+        const ph = ((simGlobalTime * 0.24) + i / 3) % 1;
+        const r = (orbitR + 36 * s) - ((orbitR + 36 * s) - coreR) * Math.pow(ph, 1.3);
+        const alpha = Math.sin(ph * Math.PI) * 0.16;
+        simCtx.beginPath();
+        simCtx.arc(cx, cy, r, 0, Math.PI * 2);
+        simCtx.strokeStyle = `rgba(251, 113, 133, ${alpha.toFixed(3)})`;
+        simCtx.lineWidth = 1.2;
+        simCtx.stroke();
+      }
+
+      // Линия орбиты
+      simCtx.beginPath();
+      simCtx.arc(cx, cy, orbitR, 0, Math.PI * 2);
+      simCtx.strokeStyle = 'rgba(251, 113, 133, 0.34)';
+      simCtx.lineWidth = 1.6;
+      simCtx.stroke();
+
+      // Спиральные частицы утечки энергии в центр
+      for (let i = 0; i < orbitParticles.length; i++) {
+        const p = orbitParticles[i];
+        p.progress += p.speed * dt;
+        if (p.progress >= 1) {
+          p.progress = 0;
+          p.angle = Math.random() * Math.PI * 2;
+        }
+        const u = p.progress;
+        const r = orbitR - (orbitR - coreR) * Math.pow(u, 1.4);
+        const theta = p.angle + p.swirl * Math.pow(u, 1.65);
+        const px = cx + Math.cos(theta) * r;
+        const py = cy + Math.sin(theta) * r;
+
+        const alpha = Math.sin(u * Math.PI) * 0.85;
+        simCtx.beginPath();
+        simCtx.arc(px, py, p.size * s, 0, Math.PI * 2);
+        simCtx.fillStyle = p.rose
+          ? `rgba(251, 113, 133, ${alpha.toFixed(3)})`
+          : `rgba(250, 250, 250, ${(alpha * 0.8).toFixed(3)})`;
+        simCtx.fill();
+      }
+
+      // Чёрная дыра в центре
+      const halo = simCtx.createRadialGradient(cx, cy, coreR - 2, cx, cy, coreR + 24 * s);
+      halo.addColorStop(0, 'rgba(251, 113, 133, 0.7)');
+      halo.addColorStop(0.5, 'rgba(225, 29, 72, 0.22)');
+      halo.addColorStop(1, 'rgba(9, 9, 11, 0)');
+      simCtx.fillStyle = halo;
+      simCtx.beginPath();
+      simCtx.arc(cx, cy, coreR + 24 * s, 0, Math.PI * 2);
+      simCtx.fill();
+
+      simCtx.fillStyle = '#050507';
+      simCtx.beginPath();
+      simCtx.arc(cx, cy, coreR, 0, Math.PI * 2);
+      simCtx.fill();
+
+      simCtx.strokeStyle = 'rgba(254, 205, 211, 0.85)';
+      simCtx.lineWidth = 1.8;
+      simCtx.stroke();
+
+      // Пульсирующий знак «?»
+      const pulse = 0.94 + Math.sin(simGlobalTime * 2.6) * 0.06;
+      simCtx.save();
+      simCtx.translate(cx, cy + 1);
+      simCtx.scale(pulse, pulse);
+      simCtx.textAlign = 'center';
+      simCtx.textBaseline = 'middle';
+      simCtx.font = `800 ${Math.round(27 * s)}px "Inter", sans-serif`;
+      simCtx.fillStyle = '#FAFAFA';
+      simCtx.fillText('?', 0, 0);
+      simCtx.restore();
+
+      // 3 вращающиеся карточки на орбите (всегда горизонтальные и читаемые)
+      const nodes = [
+        { title: 'МИРАЖ', sub: 'Начать бегать', color: '#FDA4AF' },
+        { title: 'ИМИТАЦИЯ', sub: 'Выбор экипировки', color: '#FCD34D' },
+        { title: 'КАТОРГА', sub: 'Тяну день без сил', color: '#FB7185' }
+      ];
+      const baseA = -Math.PI / 2 + simGlobalTime * 0.42;
+
+      nodes.forEach((n, idx) => {
+        const a = baseA + idx * ((Math.PI * 2) / 3);
+        const nx = cx + Math.cos(a) * orbitR;
+        const ny = cy + Math.sin(a) * orbitR;
+
+        let subFontPx = Math.max(9.5, Math.round(10.5 * s));
+        simCtx.font = `700 ${subFontPx}px "Inter", sans-serif`;
+        let measuredSub = simCtx.measureText(n.sub).width;
+        const maxPillW = Math.min(simW * 0.52, 188 * s);
+        while (measuredSub + 20 * s > maxPillW && subFontPx > 7.5) {
+          subFontPx -= 0.5;
+          simCtx.font = `700 ${subFontPx}px "Inter", sans-serif`;
+          measuredSub = simCtx.measureText(n.sub).width;
+        }
+        const w = Math.max(102 * s, Math.min(maxPillW, measuredSub + 22 * s));
+        const h = 38 * s;
+        const x = Math.max(8, Math.min(simW - 8 - w, nx - w / 2));
+        const y = Math.max(38, Math.min(simH - 8 - h, ny - h / 2));
+
+        // Якорная точка на орбите
+        simCtx.beginPath();
+        simCtx.arc(nx, ny, 3.5 * s, 0, Math.PI * 2);
+        simCtx.fillStyle = n.color;
+        simCtx.fill();
+
+        // Пилюля
+        simRoundRect(simCtx, x, y, w, h, 11 * s);
+        simCtx.fillStyle = 'rgba(20, 20, 26, 0.94)';
+        simCtx.fill();
+        simCtx.strokeStyle = 'rgba(255, 255, 255, 0.14)';
+        simCtx.lineWidth = 1.1;
+        simCtx.stroke();
+
+        simCtx.textAlign = 'center';
+        simCtx.textBaseline = 'middle';
+        simCtx.font = `800 ${Math.max(8, Math.round(9 * s))}px "JetBrains Mono", monospace`;
+        simCtx.fillStyle = n.color;
+        simCtx.fillText(n.title, x + w / 2, y + h * 0.34);
+
+        simCtx.font = `700 ${subFontPx}px "Inter", sans-serif`;
+        simCtx.fillStyle = '#FAFAFA';
+        simCtx.fillText(n.sub, x + w / 2, y + h * 0.72, w - 14 * s);
+      });
+    }
+
+    // ШАГ 2: □ Весы расчёта мозга (Очевидная выгода +100 vs Скрытая тревога ×2.25)
+    function drawSimStep1() {
+      const cx = simW / 2;
+      const s = Math.min(simW / 390, simH / 260);
+
+      drawSimBg('251, 191, 36', cx + 52 * s, simH * 0.54, 0.18);
+
+      // Плавный наклон весов при входе на шаг + лёгкое живое колебание
+      const enterT = Math.min(1, simStepElapsed / 0.85);
+      const eased = 1 - Math.pow(1 - enterT, 3);
+      const tilt = eased * 0.19 + Math.sin(simGlobalTime * 1.9) * 0.014;
+
+      // Опора весов оставляет чистый воздух сверху и место под плашку «ОТКАЗАНО» снизу
+      const fulcrumBottomY = simH - 48 * s;
+      const pivotY = fulcrumBottomY - 28 * s;
+
+      simCtx.beginPath();
+      simCtx.moveTo(cx, pivotY + 2 * s);
+      simCtx.lineTo(cx - 20 * s, fulcrumBottomY);
+      simCtx.lineTo(cx + 20 * s, fulcrumBottomY);
+      simCtx.closePath();
+      simCtx.fillStyle = '#1E1E26';
+      simCtx.fill();
+      simCtx.strokeStyle = 'rgba(255,255,255,0.16)';
+      simCtx.lineWidth = 1.3;
+      simCtx.stroke();
+
+      // Основание весов
+      simCtx.beginPath();
+      simCtx.moveTo(cx - 42 * s, fulcrumBottomY);
+      simCtx.lineTo(cx + 42 * s, fulcrumBottomY);
+      simCtx.strokeStyle = 'rgba(255,255,255,0.18)';
+      simCtx.lineWidth = 2;
+      simCtx.lineCap = 'round';
+      simCtx.stroke();
+
+      // Наклоняющаяся балка
+      const halfBeam = 104 * s;
+
+      simCtx.save();
+      simCtx.translate(cx, pivotY);
+      simCtx.rotate(tilt);
+
+      simRoundRect(simCtx, -halfBeam, -3.5 * s, halfBeam * 2, 7 * s, 3.5 * s);
+      simCtx.fillStyle = '#3F3F46';
+      simCtx.fill();
+
+      // Шарнир в центре
+      simCtx.beginPath();
+      simCtx.arc(0, 0, 5 * s, 0, Math.PI * 2);
+      simCtx.fillStyle = '#A1A1AA';
+      simCtx.fill();
+      simCtx.restore();
+
+      // Координаты концов балки в мировых координатах (карточки стоят строго горизонтально)
+      const lx = cx - Math.cos(tilt) * (halfBeam - 14 * s);
+      const ly = pivotY - Math.sin(tilt) * (halfBeam - 14 * s);
+
+      const rx = cx + Math.cos(tilt) * (halfBeam - 14 * s);
+      const ry = pivotY + Math.sin(tilt) * (halfBeam - 14 * s);
+
+      // Левая чаша: Очевидная выгода (+100)
+      const leftW = 138 * s;
+      const leftH = 58 * s;
+      const leftX = Math.max(10, lx - leftW / 2);
+      const leftY = Math.max(46, ly - leftH - 10 * s);
+
+      simRoundRect(simCtx, leftX, leftY, leftW, leftH, 14 * s);
+      simCtx.fillStyle = 'rgba(26, 46, 5, 0.86)';
+      simCtx.fill();
+      simCtx.strokeStyle = 'rgba(163, 230, 53, 0.65)';
+      simCtx.lineWidth = 1.6;
+      simCtx.stroke();
+
+      simCtx.textAlign = 'center';
+      simCtx.textBaseline = 'middle';
+      simCtx.font = `800 ${Math.round(20 * s)}px "JetBrains Mono", monospace`;
+      simCtx.fillStyle = '#A3E635';
+      simCtx.fillText('+100', leftX + leftW / 2, leftY + leftH * 0.37);
+
+      simCtx.font = `600 ${Math.max(9.5, Math.round(10.5 * s))}px "Inter", sans-serif`;
+      simCtx.fillStyle = '#E4E4E7';
+      simCtx.fillText('Очевидная выгода', leftX + leftW / 2, leftY + leftH * 0.74);
+
+      // Правая чаша: Скрытая тревога (×2.25)
+      const rightW = 154 * s;
+      const rightH = 74 * s;
+      const rightX = Math.min(simW - 10 - rightW, rx - rightW / 2);
+      const rightY = Math.max(46, ry - rightH - 10 * s);
+
+      // Пульсирующая красная аура тяжести
+      const glowPulse = 0.24 + Math.sin(simGlobalTime * 3) * 0.1;
+      simCtx.shadowColor = `rgba(251, 113, 133, ${glowPulse.toFixed(2)})`;
+      simCtx.shadowBlur = 20;
+
+      simRoundRect(simCtx, rightX, rightY, rightW, rightH, 16 * s);
+      simCtx.fillStyle = 'rgba(59, 10, 24, 0.93)';
+      simCtx.fill();
+      simCtx.strokeStyle = '#FB7185';
+      simCtx.lineWidth = 2;
+      simCtx.stroke();
+      simCtx.shadowBlur = 0;
+
+      simCtx.font = `800 ${Math.round(19 * s)}px "JetBrains Mono", monospace`;
+      simCtx.fillStyle = '#FB7185';
+      simCtx.fillText('−50 × 2.25', rightX + rightW / 2, rightY + rightH * 0.28);
+
+      simCtx.font = `700 ${Math.max(9.5, Math.round(10.5 * s))}px "Inter", sans-serif`;
+      simCtx.fillStyle = '#FAFAFA';
+      simCtx.fillText('Скрытая тревога:', rightX + rightW / 2, rightY + rightH * 0.57);
+
+      simCtx.font = `700 ${Math.max(9.5, Math.round(10.5 * s))}px "Inter", sans-serif`;
+      simCtx.fillStyle = '#FDA4AF';
+      simCtx.fillText('«Косо посмотрят»', rightX + rightW / 2, rightY + rightH * 0.80);
+
+      // Чистая плашка вердикта под основанием весов (никогда не залезает на другие элементы)
+      const badgeW = 114 * s;
+      const badgeH = 26 * s;
+      const badgeX = cx - badgeW / 2;
+      const badgeY = simH - 34 * s;
+
+      simRoundRect(simCtx, badgeX, badgeY, badgeW, badgeH, 9 * s);
+      simCtx.fillStyle = 'rgba(59, 10, 24, 0.92)';
+      simCtx.fill();
+      simCtx.strokeStyle = 'rgba(251, 113, 133, 0.72)';
+      simCtx.lineWidth = 1.2;
+      simCtx.stroke();
+
+      simCtx.font = `800 ${Math.max(9.5, Math.round(10.5 * s))}px "JetBrains Mono", monospace`;
+      simCtx.fillStyle = '#FDA4AF';
+      simCtx.fillText('ОТКАЗАНО', cx, badgeY + badgeH / 2 + 0.5);
+    }
+
+    // ШАГ 3: △ Треугольник разрывает круг и переводит энергию в вектор
+    function drawSimStep2() {
+      const cx = simW / 2;
+      const cy = simH / 2 + 8;
+      const s = Math.min(simW / 390, simH / 260);
+      const t = simStepElapsed;
+
+      // Фаза 1 (0..0.46s): натяжение и появление клина; Фаза 2 (0.46s+): разрыв и высвобождение
+      const snapTime = 0.46;
+      const snapped = t >= snapTime;
+      const afterSnap = Math.max(0, t - snapTime);
+
+      drawSimBg(snapped ? '163, 230, 53' : '251, 113, 133', cx, cy, snapped ? 0.2 : 0.24);
+
+      // Центр треугольника плавно смещается влево после разрыва круга, освобождая место под вектор
+      const shiftProg = snapped ? Math.min(1, afterSnap / 0.42) : 0;
+      const shiftEase = 1 - Math.pow(1 - shiftProg, 3);
+      const leftCenterX = cx - shiftEase * 68 * s;
+
+      // Разрываемый красный круг старой ловушки
+      const ringR = 66 * s;
+      if (!snapped) {
+        const shake = Math.sin(t * 58) * (1.8 * s) * (t / snapTime);
+        simCtx.save();
+        simCtx.beginPath();
+        simCtx.arc(cx + shake, cy, ringR, 0, Math.PI * 2);
+        simCtx.strokeStyle = 'rgba(251, 113, 133, 0.78)';
+        simCtx.lineWidth = 2.2;
+        simCtx.stroke();
+        simCtx.restore();
+      } else if (afterSnap < 0.9) {
+        const fade = Math.max(0, 1 - afterSnap / 0.9);
+        const expand = afterSnap * 34 * s;
+        for (let seg = 0; seg < 3; seg++) {
+          const a0 = seg * ((Math.PI * 2) / 3) + 0.25 + afterSnap * 0.45;
+          const a1 = a0 + 1.3;
+          simCtx.save();
+          simCtx.beginPath();
+          simCtx.arc(cx, cy, ringR + expand, a0, a1);
+          simCtx.strokeStyle = `rgba(251, 113, 133, ${(fade * 0.72).toFixed(3)})`;
+          simCtx.lineWidth = 2;
+          simCtx.lineCap = 'round';
+          simCtx.stroke();
+          simCtx.restore();
+        }
+      }
+
+      // Вспышка и разлёт частиц при щелчке
+      if (snapped && afterSnap < 1.1) {
+        const pFade = Math.max(0, 1 - afterSnap / 1.1);
+        for (let i = 0; i < burstParticles.length; i++) {
+          const bp = burstParticles[i];
+          const dist = bp.speed * afterSnap * s;
+          const bx = cx + Math.cos(bp.angle) * dist;
+          const by = cy + Math.sin(bp.angle) * dist;
+          simCtx.beginPath();
+          simCtx.arc(bx, by, bp.size * s * pFade, 0, Math.PI * 2);
+          simCtx.fillStyle = bp.isLime
+            ? `rgba(163, 230, 53, ${pFade.toFixed(3)})`
+            : `rgba(251, 113, 133, ${(pFade * 0.7).toFixed(3)})`;
+          simCtx.fill();
+        }
+      }
+
+      // Чёткий сияющий Треугольник сбоя (△)
+      const triScale = Math.min(1, t / 0.35);
+      const triR = 46 * s * (0.65 + 0.35 * triScale);
+      simCtx.save();
+      simCtx.translate(leftCenterX, cy + 4 * s);
+      simCtx.beginPath();
+      simCtx.moveTo(0, -triR);
+      simCtx.lineTo(triR * 0.92, triR * 0.72);
+      simCtx.lineTo(-triR * 0.92, triR * 0.72);
+      simCtx.closePath();
+      simCtx.fillStyle = snapped ? 'rgba(163, 230, 53, 0.10)' : 'rgba(251, 113, 133, 0.10)';
+      simCtx.fill();
+      simCtx.strokeStyle = snapped ? '#A3E635' : '#FAFAFA';
+      simCtx.lineWidth = 2.4;
+      simCtx.lineJoin = 'round';
+      simCtx.shadowColor = snapped ? 'rgba(163, 230, 53, 0.6)' : 'rgba(255,255,255,0.4)';
+      simCtx.shadowBlur = 14;
+      simCtx.stroke();
+      simCtx.shadowBlur = 0;
+
+      simCtx.textAlign = 'center';
+      simCtx.textBaseline = 'middle';
+      simCtx.font = `800 ${Math.round(12 * s)}px "JetBrains Mono", monospace`;
+      simCtx.fillStyle = snapped ? '#D9F99D' : '#FAFAFA';
+      simCtx.fillText('СБОЙ', 0, 8 * s);
+      simCtx.restore();
+
+      // Высвобожденный вектор энергии вправо → НАМЕРЕНИЕ
+      if (snapped) {
+        const beamProg = Math.min(1, afterSnap / 0.45);
+        const startX = leftCenterX + triR + 10 * s;
+        const targetX = simW - 24 * s;
+        const curX = startX + (targetX - startX) * beamProg;
+
+        const grad = simCtx.createLinearGradient(startX, cy, targetX, cy);
+        grad.addColorStop(0, 'rgba(163, 230, 53, 0.25)');
+        grad.addColorStop(1, '#A3E635');
+
+        simCtx.beginPath();
+        simCtx.moveTo(startX, cy + 4 * s);
+        simCtx.lineTo(curX, cy + 4 * s);
+        simCtx.strokeStyle = grad;
+        simCtx.lineWidth = 3;
+        simCtx.lineCap = 'round';
+        simCtx.stroke();
+
+        // Пилюля «НАМЕРЕНИЕ» на конце луча
+        if (beamProg > 0.75) {
+          const arrowAlpha = (beamProg - 0.75) / 0.25;
+          simCtx.save();
+          simCtx.globalAlpha = arrowAlpha;
+
+          const pillW = 128 * s;
+          const pillH = 42 * s;
+          const pillX = Math.min(simW - 14 - pillW, cx + 22 * s);
+          const pillY = cy - pillH / 2 + 4 * s;
+
+          simRoundRect(simCtx, pillX, pillY, pillW, pillH, 13 * s);
+          simCtx.fillStyle = 'rgba(26, 46, 5, 0.94)';
+          simCtx.fill();
+          simCtx.strokeStyle = '#A3E635';
+          simCtx.lineWidth = 1.8;
+          simCtx.stroke();
+
+          simCtx.textAlign = 'center';
+          simCtx.textBaseline = 'middle';
+          simCtx.font = `800 ${Math.round(10 * s)}px "JetBrains Mono", monospace`;
+          simCtx.fillStyle = '#A3E635';
+          simCtx.fillText('ЭНЕРГИЯ ВЫШЛА', pillX + pillW / 2, pillY + pillH * 0.34);
+
+          simCtx.font = `800 ${Math.round(12.5 * s)}px "Inter", sans-serif`;
+          simCtx.fillStyle = '#FAFAFA';
+          simCtx.fillText('→ НАМЕРЕНИЕ', pillX + pillW / 2, pillY + pillH * 0.72);
+          simCtx.restore();
+        }
+      }
+    }
+
+    // ШАГ 4: • Точка «0» — спокойная ясность и 1 простой шаг
+    function drawSimStep3(dt) {
+      const cy = simH / 2 + 6;
+      const s = Math.min(simW / 390, simH / 260);
+      const startX = simW * 0.25;
+      const endX = simW * 0.77;
+
+      drawSimBg('163, 230, 53', startX, cy, 0.22);
+
+      // Спокойные расходящиеся круги от Точки «0»
+      for (let i = 0; i < 3; i++) {
+        const ph = ((simGlobalTime * 0.32) + i / 3) % 1;
+        const r = 12 * s + ph * 64 * s;
+        const alpha = (1 - ph) * 0.32;
+        simCtx.beginPath();
+        simCtx.arc(startX, cy, r, 0, Math.PI * 2);
+        simCtx.strokeStyle = `rgba(163, 230, 53, ${alpha.toFixed(3)})`;
+        simCtx.lineWidth = 1.4;
+        simCtx.stroke();
+      }
+
+      // Линия спокойного движения
+      const lineGrad = simCtx.createLinearGradient(startX, cy, endX, cy);
+      lineGrad.addColorStop(0, '#A3E635');
+      lineGrad.addColorStop(1, 'rgba(163, 230, 53, 0.25)');
+      simCtx.beginPath();
+      simCtx.moveTo(startX, cy);
+      simCtx.lineTo(endX, cy);
+      simCtx.strokeStyle = lineGrad;
+      simCtx.lineWidth = 2.4;
+      simCtx.stroke();
+
+      // Лёгкий поток частиц вперёд
+      for (let i = 0; i < flowDots.length; i++) {
+        const fd = flowDots[i];
+        fd.t = (fd.t + fd.speed * dt) % 1;
+        const fx = startX + (endX - startX) * fd.t;
+        const fy = cy + Math.sin(fd.t * Math.PI * 2 + i) * (fd.offsetY * 0.35 * s);
+        const alpha = Math.sin(fd.t * Math.PI) * 0.85;
+        simCtx.beginPath();
+        simCtx.arc(fx, fy, fd.size * s, 0, Math.PI * 2);
+        simCtx.fillStyle = `rgba(217, 249, 157, ${alpha.toFixed(3)})`;
+        simCtx.fill();
+      }
+
+      // Точка «0» (слева)
+      simCtx.beginPath();
+      simCtx.arc(startX, cy, 13 * s, 0, Math.PI * 2);
+      simCtx.fillStyle = '#A3E635';
+      simCtx.shadowColor = 'rgba(163, 230, 53, 0.85)';
+      simCtx.shadowBlur = 18;
+      simCtx.fill();
+      simCtx.shadowBlur = 0;
+
+      simCtx.textAlign = 'center';
+      simCtx.textBaseline = 'middle';
+      simCtx.font = `800 ${Math.round(10 * s)}px "JetBrains Mono", monospace`;
+      simCtx.fillStyle = '#D9F99D';
+      simCtx.fillText('ТОЧКА «0»', startX, cy + 32 * s);
+
+      simCtx.font = `600 ${Math.round(10 * s)}px "Inter", sans-serif`;
+      simCtx.fillStyle = '#A1A1AA';
+      simCtx.fillText('Ясная голова', startX, cy + 48 * s);
+
+      // Финальная карточка шага (справа)
+      const boxW = 132 * s;
+      const boxH = 54 * s;
+      const boxX = Math.min(simW - 14 - boxW, endX - boxW * 0.45);
+      const boxY = cy - boxH / 2;
+
+      simRoundRect(simCtx, boxX, boxY, boxW, boxH, 15 * s);
+      simCtx.fillStyle = 'rgba(20, 20, 26, 0.95)';
+      simCtx.fill();
+      simCtx.strokeStyle = 'rgba(163, 230, 53, 0.75)';
+      simCtx.lineWidth = 1.8;
+      simCtx.stroke();
+
+      simCtx.font = `800 ${Math.round(9.5 * s)}px "JetBrains Mono", monospace`;
+      simCtx.fillStyle = '#A3E635';
+      simCtx.fillText('НАМЕРЕНИЕ', boxX + boxW / 2, boxY + boxH * 0.34);
+
+      simCtx.font = `800 ${Math.round(12.5 * s)}px "Inter", sans-serif`;
+      simCtx.fillStyle = '#FAFAFA';
+      simCtx.fillText('Лёгкий старт →', boxX + boxW / 2, boxY + boxH * 0.71);
+    }
+
+    function simAnimate(ts) {
+      if (state.activeTab !== 'sim') {
+        simRafId = null;
+        return;
+      }
+      if (!simLastTs) simLastTs = ts;
+      const dt = Math.min((ts - simLastTs) / 1000, 0.05);
+      simLastTs = ts;
+      simGlobalTime += dt;
+      simStepElapsed += dt;
+
+      // Автоподстройка размеров Canvas, если контейнер дорендерился с задержкой
+      if (simCanvas) {
+        const rect = simCanvas.getBoundingClientRect();
+        if (rect.width > 0 && rect.height > 0 && (Math.abs(rect.width - simW) > 1 || Math.abs(rect.height - simH) > 1)) {
+          resizeSimCanvas();
+        }
+      }
+
+      if (simCtx && simW > 0 && simH > 0) {
+        try {
+          if (state.simStep === 0) drawSimStep0(dt);
+          else if (state.simStep === 1) drawSimStep1();
+          else if (state.simStep === 2) drawSimStep2();
+          else drawSimStep3(dt);
+        } catch (err) {
+          console.error('Sim draw error:', err);
+        }
+      }
+
+      simRafId = requestAnimationFrame(simAnimate);
+    }
+
+    function startSimLoop() {
+      if (simRafId !== null) return;
+      simLastTs = 0;
+      simRafId = requestAnimationFrame(simAnimate);
+    }
+
+    function stopSimLoop() {
+      if (simRafId !== null) {
+        cancelAnimationFrame(simRafId);
+        simRafId = null;
+      }
+    }
+
+    // Обновление текстовой карточки и кнопок симулятора
+    function updateSimUI() {
+      const stepData = SIM_STEPS[state.simStep] || SIM_STEPS[0];
+
+      // Обновляем 4 пилюли прогресса
+      for (let i = 0; i < 4; i++) {
+        const pill = document.getElementById(`sim-pill-${i}`);
+        if (!pill) continue;
+        if (i === state.simStep) {
+          const activeColor = i === 0
+            ? 'border-rose-400/80 bg-rose-500/15 text-rose-300'
+            : (i === 1
+              ? 'border-amber-400/80 bg-amber-500/15 text-amber-300'
+              : 'border-lime-400/80 bg-lime-400/15 text-lime-300');
+          pill.className = `py-2 px-1.5 rounded-xl border text-center transition ${activeColor}`;
+        } else if (i < state.simStep) {
+          pill.className = 'py-2 px-1.5 rounded-xl border border-zinc-700 bg-zinc-900 text-zinc-200 text-center transition';
+        } else {
+          pill.className = 'py-2 px-1.5 rounded-xl border border-zinc-800/90 bg-zinc-900/50 text-zinc-500 text-center transition';
+        }
+      }
+
+      // Метки на сцене
+      const tagEl = document.getElementById('sim-stage-tag');
+      const numEl = document.getElementById('sim-stage-step-num');
+      if (tagEl) tagEl.textContent = stepData.tag;
+      if (numEl) numEl.textContent = `${state.simStep + 1} / 4`;
+
+      // Текстовая карточка с плавным перепоявлением
+      const card = document.getElementById('sim-card');
+      const badgeEl = document.getElementById('sim-badge');
+      const hintEl = document.getElementById('sim-hint');
+      const titleEl = document.getElementById('sim-title');
+      const bodyEl = document.getElementById('sim-body');
+
+      if (badgeEl) {
+        badgeEl.textContent = stepData.badge;
+        badgeEl.className = `mono text-[10px] font-extrabold px-2 py-0.5 rounded-md ${stepData.badgeCls}`;
+      }
+      if (hintEl) hintEl.textContent = stepData.hint;
+      if (titleEl) titleEl.textContent = stepData.title;
+      if (bodyEl) bodyEl.innerHTML = stepData.bodyHtml;
+
+      if (card) {
+        card.classList.remove('fade-step');
+        void card.offsetWidth;
+        card.classList.add('fade-step');
+      }
+
+      // Кнопки Назад / Вперёд
+      const prevBtn = document.getElementById('sim-prev-btn');
+      const nextLabel = document.getElementById('sim-next-label');
+      const restartWrap = document.getElementById('sim-restart-wrap');
+
+      if (prevBtn) {
+        prevBtn.classList.toggle('hidden', state.simStep === 0);
+      }
+      if (nextLabel) {
+        nextLabel.textContent = stepData.nextLabel;
+      }
+      if (restartWrap) {
+        restartWrap.classList.toggle('hidden', state.simStep !== 3);
+      }
+
+      syncTelegramBackButton();
+    }
+
+    function goToSimStep(stepIdx) {
+      const clamped = Math.max(0, Math.min(3, stepIdx));
+      state.simStep = clamped;
+      simStepElapsed = 0;
+      if (clamped === 2) {
+        resetBurstParticles();
+        hapticTap('impact');
+      } else {
+        hapticTap();
+      }
+      updateSimUI();
+    }
+
+    function nextSimStep() {
+      if (state.simStep < 3) {
+        goToSimStep(state.simStep + 1);
+      } else {
+        hapticTap('impact');
+        switchTab('calc', true);
+      }
+    }
+
+    function prevSimStep() {
+      if (state.simStep > 0) {
+        goToSimStep(state.simStep - 1);
+      }
+    }
+
+    // Поддержка свайпов пальцем по сцене и карточке симулятора
+    let touchStartX = 0;
+    let touchStartY = 0;
+    function bindSimGestures() {
+      const targets = [
+        document.getElementById('sim-stage-box'),
+        document.getElementById('sim-card')
+      ].filter(Boolean);
+
+      targets.forEach((el) => {
+        el.addEventListener('touchstart', (e) => {
+          if (!e.touches || !e.touches[0]) return;
+          touchStartX = e.touches[0].clientX;
+          touchStartY = e.touches[0].clientY;
+        }, { passive: true });
+
+        el.addEventListener('touchend', (e) => {
+          if (!e.changedTouches || !e.changedTouches[0]) return;
+          const dx = e.changedTouches[0].clientX - touchStartX;
+          const dy = e.changedTouches[0].clientY - touchStartY;
+          if (Math.abs(dx) > 48 && Math.abs(dx) > Math.abs(dy) * 1.4) {
+            if (dx < 0 && state.simStep < 3) nextSimStep();
+            else if (dx > 0 && state.simStep > 0) prevSimStep();
+          }
+        }, { passive: true });
+      });
+    }
+
+    // Проверка стартового параметра (?tab=sim / ?tab=demo или Telegram ?startapp=demo)
+    function detectInitialTab() {
+      try {
+        const params = new URLSearchParams(window.location.search);
+        const urlTab = (params.get('tab') || params.get('mode') || '').toLowerCase();
+        if (urlTab === 'sim' || urlTab === 'demo') return 'sim';
+
+        if (tg && tg.initDataUnsafe && tg.initDataUnsafe.start_param) {
+          const sp = String(tg.initDataUnsafe.start_param).toLowerCase();
+          if (sp === 'sim' || sp === 'demo' || sp === 'how') return 'sim';
+        }
+      } catch (e) {}
+      return 'calc';
+    }
+
+    // Отмена страховочной шторки, если Telegram успешно переключил пользователя в чат
+    document.addEventListener('visibilitychange', function () {
+      if (document.visibilityState === 'hidden' && fallbackTimer) {
+        clearTimeout(fallbackTimer);
+        fallbackTimer = null;
+      }
     });
 
-    // Инициализация при загрузке
-    window.onload = function () {
+    // Закрытие шторки по Escape и навигация стрелками на компьютере
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') closeSendModal();
+      if (state.activeTab === 'sim') {
+        if (e.key === 'ArrowRight') nextSimStep();
+        if (e.key === 'ArrowLeft') prevSimStep();
+      }
+    });
+
+    window.addEventListener('resize', () => {
+      if (state.activeTab === 'sim') resizeSimCanvas();
+    });
+
+    // Надёжная инициализация приложения (не ждёт внешние шрифты и срабатывает ровно один раз)
+    let appInitialized = false;
+    function initApp() {
+      if (appInitialized) return;
+      appInitialized = true;
+
       try {
+        initSimParticles();
+        resetBurstParticles();
+        bindSimGestures();
+
         if (isInsideTelegram) {
           tg.ready();
           tg.expand();
@@ -849,14 +1912,27 @@
           if (typeof tg.setBackgroundColor === 'function') tg.setBackgroundColor('#0B0B0E');
           if (typeof tg.setBottomBarColor === 'function') tg.setBottomBarColor('#09090B');
           if (tg.BackButton && typeof tg.BackButton.onClick === 'function') {
-            tg.BackButton.onClick(closeSendModal);
+            tg.BackButton.onClick(handleTelegramBack);
           }
         }
       } catch (e) {
-        console.error('Telegram init error:', e);
+        console.error('Init error:', e);
       }
+
       updateUI();
-    };
+      const initialTab = detectInitialTab();
+      switchTab(initialTab, true);
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initApp);
+    } else {
+      initApp();
+    }
+
+    window.addEventListener('load', () => {
+      if (state.activeTab === 'sim') resizeSimCanvas();
+    });
   </script>
 </body>
 </html>
